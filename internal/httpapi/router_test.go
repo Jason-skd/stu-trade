@@ -15,7 +15,7 @@ import (
 func TestHealthDoesNotCheckDependencies(t *testing.T) {
 	database := &stubDatabasePinger{err: errors.New("database unavailable")}
 	migrations := &stubMigrationChecker{err: errors.New("schema unavailable")}
-	router := NewRouter(NewReadiness(database, migrations, discardLogger()))
+	router := NewRouter(NewReadiness(database, migrations, discardLogger()), nil)
 
 	response := performRequest(router, http.MethodGet, "/health")
 	if response.Code != http.StatusOK || database.called || migrations.called {
@@ -39,7 +39,7 @@ func TestReadinessStates(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			router := NewRouter(NewReadiness(tt.database, tt.migrations, discardLogger()))
+			router := NewRouter(NewReadiness(tt.database, tt.migrations, discardLogger()), nil)
 			response := performRequest(router, http.MethodGet, "/ready")
 			if response.Code != tt.wantStatus || !strings.Contains(response.Body.String(), tt.wantBody) {
 				t.Fatalf("response = (%d, %q), want status %d containing %q", response.Code, response.Body.String(), tt.wantStatus, tt.wantBody)
@@ -54,7 +54,7 @@ func TestReadinessTimesOutDependencyChecks(t *testing.T) {
 	readiness.timeout = 10 * time.Millisecond
 
 	started := time.Now()
-	response := performRequest(NewRouter(readiness), http.MethodGet, "/ready")
+	response := performRequest(NewRouter(readiness, nil), http.MethodGet, "/ready")
 	if response.Code != http.StatusServiceUnavailable || !strings.Contains(response.Body.String(), `"reason":"database_unavailable"`) {
 		t.Fatalf("response = (%d, %q)", response.Code, response.Body.String())
 	}
@@ -64,7 +64,7 @@ func TestReadinessTimesOutDependencyChecks(t *testing.T) {
 }
 
 func TestUnknownRouteReturnsBackendNotFound(t *testing.T) {
-	router := NewRouter(NewReadiness(&stubDatabasePinger{}, &stubMigrationChecker{}, discardLogger()))
+	router := NewRouter(NewReadiness(&stubDatabasePinger{}, &stubMigrationChecker{}, discardLogger()), nil)
 	response := performRequest(router, http.MethodGet, "/missing")
 	if response.Code != http.StatusNotFound || !strings.Contains(response.Body.String(), `"error":"not_found"`) {
 		t.Fatalf("response = (%d, %q)", response.Code, response.Body.String())

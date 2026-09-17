@@ -1,6 +1,6 @@
 # StuTrade
 
-StuTrade 是面向校园交易场景的撮合平台。主仓库承载业务宿主和项目文档，通用撮合引擎与 React + TypeScript 前端分别通过 Git submodule 接入。
+StuTrade 是面向校园交易场景的撮合平台。本仓库的 `docs/` 是整个项目产品范围、架构和跨仓库契约的唯一文档真相源；本仓库的可执行代码只承载后端业务宿主、HTTP API 和运行装配。通用撮合引擎与 React + TypeScript 前端分别维护独立仓库，并通过 Git submodule 记录协作版本。
 
 平台首先交付二手书交易 MVP，验证三条核心路径：系统自动撮合、卖方主动接单和买方主动购买。后续校园二手物品、跑腿和租赁场景复用同一个撮合引擎，各自在宿主中保留领域字段与成交规则。
 
@@ -8,16 +8,17 @@ StuTrade 是面向校园交易场景的撮合平台。主仓库承载业务宿�
 
 - **业务宿主**负责用户入口、领域数据、领域规则、撮合编排、交易确认和履约流程。
 - **撮合引擎**负责需求、供给、候选匹配和撮合请求等通用能力，不依赖 Gin、PostgreSQL 或具体领域。
-- **前端**与宿主在源码和开发流程上分离；发布时构建为静态资源并嵌入宿主程序。
+- **前端**独立构建和部署，只通过后端 API 协作；后端不构建、嵌入或提供前端资源。
 - **PostgreSQL**是独立运行的数据服务，不打包进宿主程序。
 
-开发态保持前后端分离，交付态由同一个进程提供页面和 API：
+主仓库文档描述整个项目如何发展；各子仓库只维护所属代码、局部开发入口和由代码生成的契约产物。跨仓库设计变更必须先更新主仓库文档，再在对应实现仓库落地，不能让三个 README 演化成互相竞争的产品规范。
+
+前后端在开发和交付时都保持独立：
 
 ```text
-web --bun build--> dist --go:embed--> stu-trade executable
-                                         ├── Gin: Web UI + /api/v1
-                                         ├── Engine: Go package
-                                         └── pgx: PostgreSQL
+web client ──HTTP──> Gin: /api/v1 ──> business host ──> engine
+                                              │
+                                              └──> pgx: PostgreSQL
 ```
 
 ## 技术选型
@@ -25,11 +26,11 @@ web --bun build--> dist --go:embed--> stu-trade executable
 | 范围     | 选型                      | 用途                                 |
 | -------- | ------------------------- | ------------------------------------ |
 | 宿主语言 | Go                        | 业务实现、服务装配和可执行程序交付   |
-| HTTP     | Gin                       | API、健康检查和前端静态资源服务      |
+| HTTP     | Gin                       | API 与健康检查                       |
 | 数据访问 | pgx/v5 + sqlc             | PostgreSQL 连接池与类型安全查询      |
 | 数据库   | PostgreSQL                | 业务数据、约束和事务                 |
 | 数据迁移 | goose                     | 管理并执行版本化 SQL migration       |
-| 前端     | React + TypeScript + Vite | 浏览器用户界面与静态资源构建         |
+| 前端     | React + TypeScript + Vite | 由 `web` 子仓库独立实现和交付         |
 | 本地编排 | Docker Compose            | 一键启动隔离的开发环境               |
 
 sqlc 生成代码属于数据库适配层，不直接作为 HTTP DTO 或业务实体使用。迁移文件是数据库 schema 的唯一事实来源；生成文件不手工修改。
@@ -38,13 +39,13 @@ sqlc 生成代码属于数据库适配层，不直接作为 HTTP DTO 或业务�
 
 项目将运行环境定义为三个部署配置。部署配置负责选择依赖和运行参数，不改变业务规则，也不等同于 Gin 的 `debug`、`release` 和 `test` 模式。
 
-| 配置         | 中文名称             | 运行方式                      | 前端                         | PostgreSQL                 | Migration          |
-| ------------ | -------------------- | ----------------------------- | ---------------------------- | -------------------------- | ------------------ |
-| `develop`    | 本地开发模式         | `docker compose` 一键启动     | Vite 开发服务器，支持 HMR    | Compose 容器               | 启动时自动执行     |
-| `native`     | 本机运行模式（本机版） | 用户运行唯一的 Windows exe    | 静态资源嵌入 exe，由 Gin 提供 | 用户电脑预装的 PostgreSQL  | exe 启动时自动执行 |
-| `production` | 托管生产模式         | CI/CD 部署到项目服务器        | 随服务发布，通过域名访问     | 服务器或托管 PostgreSQL    | CI/CD 发布阶段执行 |
+| 配置         | 中文名称               | 运行方式                   | PostgreSQL                | Migration          |
+| ------------ | ---------------------- | -------------------------- | ------------------------- | ------------------ |
+| `develop`    | 本地开发模式           | `docker compose` 一键启动  | Compose 容器              | 启动时自动执行     |
+| `native`     | 本机运行模式（本机版） | 用户运行唯一的 Windows exe | 用户电脑预装的 PostgreSQL | exe 启动时自动执行 |
+| `production` | 托管生产模式           | CI/CD 部署到项目服务器     | 服务器或托管 PostgreSQL   | CI/CD 发布阶段执行 |
 
-计划使用同一个命令入口承载各配置：
+同一个命令入口承载各配置：
 
 ```text
 stu-trade.exe                         # Windows 交付物，默认使用 native
@@ -55,21 +56,21 @@ stu-trade migrate up
 stu-trade version
 ```
 
-上述命令属于 MVP 目标接口，当前尚未实现。
+`serve` 是默认命令；`migrate up` 供 production 发布阶段独立执行。
 
 ### 本机运行模式
 
-本机版不是 Win32 原生界面。exe 在 `127.0.0.1` 启动 HTTP 服务，提供嵌入的 Web UI 和 API，并在服务就绪后打开默认浏览器。Bun、Node.js 和 Docker 都只是构建或开发依赖，不是本机版的运行依赖。
+本机版 exe 在 `127.0.0.1` 启动后端 API。它不包含界面，也不要求 Bun、Node.js、Docker 或 C 运行库。
 
 老师的电脑需要提前安装、启动并按课程约定配置 PostgreSQL。直接运行 exe 时，宿主使用内置的本机默认连接参数自动连接，不要求用户输入命令行参数；连接成功后自动建表或升级 schema。宿主不负责安装 PostgreSQL，也不在缺少管理员凭据时创建数据库用户或数据库。开发和本机环境允许通过 `STUTRADE_DATABASE_URL` 覆盖约定默认值；生产连接信息只能由 CI/CD Secret 或服务器环境注入。
 
 ### 托管生产模式
 
-CI 构建前端和 Go 服务，CD 在发布阶段执行 migration，再部署服务。服务监听内部端口，由反向代理或平台入口负责域名、TLS 和公网流量。用户通过网址使用系统，不需要安装客户端或 PostgreSQL。
+CI 构建 Go 服务，CD 在发布阶段执行 migration，再部署服务。服务监听内部端口，由反向代理或平台入口负责域名、TLS 和公网流量。
 
 ### 本地开发模式
 
-Docker Compose 负责启动 PostgreSQL、宿主和 Vite 开发服务器。Vite 将 `/api` 代理到宿主，前端保留热更新；所有依赖均在本地运行，不连接生产服务或生产数据库。
+Docker Compose 只负责启动 PostgreSQL 和后端宿主。前端仓库独立运行自己的开发服务器，并将 API 请求代理到后端；后端 Compose 不连接生产服务或生产数据库。
 
 ## MVP 范围
 
@@ -86,14 +87,14 @@ MVP 不包含真实支付、聊天、物流、竞价和自由文本智能匹配�
 
 ## 宿主与撮合引擎
 
-`engine` 远端主分支已经完成 MVP 规划，但尚未形成可供宿主调用的业务 API。MVP 的第一项工作不是预先设计完整引擎，而是从上述三条交易路径提取最小协议，并由 engine 与宿主各自的行为测试共同固定。
+`engine` 已提供核心模型与首个发布挂单用例。后续业务 API 继续从三条交易路径的真实调用方提取最小协议，并由 engine 与宿主各自的行为测试共同固定。
 
 | 责任       | 撮合引擎                                               | 业务宿主                                        |
 | ---------- | ------------------------------------------------------ | ----------------------------------------------- |
 | 通用模型   | Listing、MatchRequest 及其状态转换                     | 用户、二手书资源、订单和履约                    |
 | 通用规则   | 价格兼容、候选优先级、成交价、确认与撤回               | ISBN 一致、禁止自买、资源有效和访问权限         |
 | 数据持久化 | 声明所需 Protocol 并编排原子用例，不感知具体数据库     | PostgreSQL schema、查询、锁和 Protocol 适配     |
-| 传输与运行 | 不感知 HTTP、Gin、日志或部署配置                        | API、错误翻译、日志、进程生命周期和 Web UI      |
+| 传输与运行 | 不感知 HTTP、Gin、日志或部署配置                        | API、错误翻译、日志和进程生命周期               |
 
 engine 保持为同步、确定性的 Go 库。它通过自己消费的细粒度 Protocol 获取候选、执行宿主规则并开启原子工作单元，在工作单元内推进 Listing 和 MatchRequest、调用宿主订单创建能力。它不读取环境变量、不创建数据库连接、不启动后台协程，也不认识 PostgreSQL 类型。这样 engine 可以用纯单元测试覆盖通用状态机，宿主则以真实数据库适配 Protocol，并对 schema、锁和最终事务语义负责。
 
@@ -115,7 +116,7 @@ engine 声明完成当前用例所需的最小 Protocol，宿主的 `matching` �
 
 ### 跨仓库契约
 
-主仓库定义产品范围、成交语义、部署方式和 HTTP 公共边界；engine 仓库细化通用撮合 API 与状态机；web 仓库细化页面、交互和前端依赖。发生冲突时，以主仓库当前规划为产品基线，再同步修订子仓库，而不是在三处长期保留不同语义。实现后，Go 类型与测试是 engine 协议的事实来源，生成的 OpenAPI 是前后端 HTTP 协议的事实来源。
+主仓库 `docs/` 定义产品范围、成交语义、部署方式和 HTTP 公共边界；engine 仓库实现通用撮合 API 与状态机；web 仓库实现页面、交互和前端依赖。发生冲突时，以主仓库当前规划为产品基线，再同步修订子仓库，而不是在三处长期保留不同语义。实现后，Go 类型与测试是 engine 运行协议的权威实现，生成的 OpenAPI 是前后端 HTTP 结构契约的权威产物，但二者都不能另行定义产品语义。
 
 每类契约只有一个责任方：
 
@@ -208,19 +209,19 @@ MVP 只保留完成当前用例所需的实体：
 - 确认与拒绝或撤回并发时，只能有一个终态，并正确释放或完成相关 Listing。
 - 重复提交确认或直接成交请求，不重复扣减状态或创建交易。
 
-goose migration 与前端静态资源都嵌入发布二进制。`native` 启动时只执行向前 migration；`production` 在服务发布前独立执行 migration，应用实例只校验数据库版本和可达性。
+goose migration 嵌入发布二进制。`native` 启动时只执行向前 migration；`production` 在服务发布前独立执行 migration，应用实例只校验数据库版本和可达性。
 
-## HTTP 与前端协作
+## HTTP 边界
 
 业务 API 统一放在 `/api/v1`；`/health` 只表示进程存活，`/ready` 检查 PostgreSQL 和 schema 是否可用。运行时 API 结构与 OpenAPI 文档必须来自同一份路由和 DTO 定义，不能由 README 手工维护另一份字段清单。
 
-前端规划中的用户、会话、出售挂单、求购需求、撮合和订单资源均映射到该版本前缀；子仓库 README 中未带 `/api/v1` 的路径只是早期草案，不构成兼容入口。首轮契约冻结后，前端只使用 OpenAPI 生成类型和统一客户端访问 API。
+用户、会话、出售挂单、求购需求、撮合和订单资源均映射到该版本前缀。前端通过独立发布的客户端和生成契约访问这些 API，后端不提供 SPA fallback 或静态资源路径。
 
 市集纵切包含 ISBN、书名、作者、成色、价格和可选备注，支持按 ISBN 或书名搜索，并按买卖方向与成色筛选。MVP 固定人民币，前端负责按分格式化显示，不向每条记录附加可变币种。书籍封面不属于必填数据，第一版不实现图片上传。
 
-MVP 用户系统采用宿主自有的本地账户：密码只保存安全哈希，登录态使用 `HttpOnly`、`SameSite` Cookie，并由服务端验证。`native` 和 `production` 中页面与 API 同源；`develop` 中由 Vite 代理 `/api`，因此业务代码不需要按部署配置维护三套 CORS 行为。
+MVP 用户系统采用宿主自有的本地账户：密码只保存安全哈希，登录态使用 `HttpOnly`、`SameSite` Cookie，并由服务端验证。开发代理和生产入口由前端部署或反向代理配置，不进入后端业务层。
 
-Gin 先注册健康检查和 `/api/v1`，最后才注册前端静态资源与 SPA fallback。不存在的 API 必须返回 API 的 404，不能回退到 `index.html`。带内容哈希的静态资源使用长期缓存，`index.html` 禁止长期缓存，以便生产发布后及时加载新版本。
+Gin 注册健康检查和 `/api/v1`。不存在的路径统一返回后端 404，不回退到前端页面。
 
 ## 配置、构建与发布
 
@@ -228,13 +229,12 @@ Gin 先注册健康检查和 `/api/v1`，最后才注册前端静态资源与 SP
 
 发布构建按以下顺序进行：
 
-1. 使用锁文件安装前端依赖，执行 lint、类型检查和 Vite build。
-2. 将 `web/dist` 同步到 Go 包内的嵌入目录；Go 的 `embed` 不跨包引用 submodule 目录。
-3. 校验 sqlc 生成结果和 migration 同步状态。
-4. 执行 Go 静态检查和测试，再生成目标平台二进制。
-5. 对 Windows 本机版执行 `CGO_ENABLED=0 GOOS=windows` 构建，并在 Windows CI runner 上做启动烟雾测试。
+1. 校验 sqlc 生成结果和 migration 同步状态。
+2. 执行 Go 格式、静态检查和测试。
+3. 生成 Linux 服务和 Windows 本机版二进制。
+4. 构建 production 容器镜像。
 
-构建产物不依赖 Bun、Node.js、Docker 或 C 编译运行库。二进制包含 Web UI、migration、版本号和构建提交信息。`native` 可以包含课程约定的本地 PostgreSQL 默认连接参数，使老师直接运行 exe；它绝不复用生产凭据。`production` 只从部署环境读取密钥和数据库连接信息。
+构建产物不依赖 Bun、Node.js、Docker 或 C 编译运行库。二进制包含 migration、版本号和构建提交信息，不包含前端资源。`native` 可以包含课程约定的本地 PostgreSQL 默认连接参数；它绝不复用生产凭据。`production` 只从部署环境读取密钥和数据库连接信息。
 
 ## 验证计划
 
@@ -243,9 +243,8 @@ Gin 先注册健康检查和 `/api/v1`，最后才注册前端静态资源与 SP
 | engine 单元测试       | 价格边界、候选排序、状态转换、宿主规则拒绝、成交价和确定性结果        |
 | 宿主领域测试          | 身份、所有权、状态转换、幂等确认和三条成交路径                        |
 | PostgreSQL 集成测试   | migration、约束、sqlc 映射、事务、锁和并发竞争                       |
-| HTTP 测试             | 路由、认证、绑定、权限、状态码、响应结构和 SPA fallback               |
-| 前端测试              | 核心页面状态、API 错误处理和三条用户流程                              |
-| 端到端测试            | 从两个用户发布挂单到确认或主动成交，再完成履约                        |
+| HTTP 测试             | 路由、认证、绑定、权限、状态码和响应结构                              |
+| 跨仓库端到端测试      | 由集成环境验证前端客户端与后端 API 的完整用户流程                     |
 | 发布烟雾测试          | Compose 健康检查、Linux 服务启动和 Windows exe 连接预装 PostgreSQL    |
 
 快速测试可以跳过外部 PostgreSQL；完整测试必须使用真实 PostgreSQL 和实际 migration，不能用 mock 证明约束、事务或锁行为。异步检查使用条件和明确超时，不使用固定休眠猜测完成时间。
@@ -261,7 +260,7 @@ Gin 先注册健康检查和 `/api/v1`，最后才注册前端静态资源与 SP
 5. **自动撮合纵切**：发布相容挂单后产生 pending MatchRequest，双方确认后只建立一笔订单；覆盖候选排序、规则拒绝和并发确认。
 6. **履约与交付**：双方查看订单并完成最小履约；验证 develop 一键启动、native 单 exe 和 production CI/CD 三条发布路径。
 
-每一阶段同时交付对应 migration、生成代码、后端测试和可操作前端，不把数据库、API 与页面拆成长期无法演示的平行任务。MVP 完成标准是三条核心路径均可从浏览器端到端演示，关键并发场景有自动化回归测试，且同一提交能够构建 Linux 服务与 Windows 本机版。
+每一阶段在本仓库交付对应 migration、生成代码、API 和后端测试；前端在独立仓库按相同 HTTP 契约推进。MVP 完成标准是跨仓库集成环境能够演示三条核心路径，关键并发场景有自动化回归测试，且后端同一提交能够构建 Linux 服务与 Windows 本机版。
 
 ## MVP 目录规划
 
@@ -272,14 +271,13 @@ stu-trade/
 │       └── main.go             # serve、migrate、version 命令入口
 ├── internal/
 │   ├── app/                    # 配置、依赖装配和进程生命周期
-│   ├── api/                    # Gin 路由、请求绑定、DTO 和响应
+│   ├── httpapi/                # Gin 路由、请求绑定、DTO 和响应
 │   ├── user/                   # MVP 用户与所需能力接口
 │   ├── listing/                # 二手书资源、市集读模型和发布用例
 │   ├── trade/                  # 宿主订单、TradeCreator 和履约
 │   ├── matching/               # MatchPolicy 及与 engine 的类型适配
 │   ├── db/                     # sqlc、engine Protocol 和领域存储适配
-│   ├── testutil/               # PostgreSQL 等测试资源辅助能力
-│   └── webui/                  # 嵌入资源、静态服务和 SPA fallback
+│   └── testutil/               # PostgreSQL 等测试资源辅助能力
 ├── migrations/                # goose migration 与嵌入入口
 ├── queries/                   # 按领域组织的 sqlc 查询源
 ├── engine/                    # 通用撮合引擎 submodule
@@ -292,7 +290,7 @@ stu-trade/
 └── go.mod
 ```
 
-`internal/app` 是唯一装配全部依赖的位置。业务域和 engine 各自声明自己实际消费的最小能力；`internal/api` 不承载业务规则；`internal/db` 负责 sqlc 行类型转换、PostgreSQL 错误翻译和 engine 工作单元；`internal/matching` 提供宿主规则并隔离双方类型。
+`internal/app` 是唯一装配全部依赖的位置。业务域和 engine 各自声明自己实际消费的最小能力；`internal/httpapi` 不承载业务规则；`internal/db` 负责 sqlc 行类型转换、PostgreSQL 错误翻译和 engine 工作单元；`internal/matching` 提供宿主规则并隔离双方类型。
 
 MVP 采用一个宿主进程，不把二手书、跑腿和租赁拆成微服务。后续场景优先作为宿主内的独立领域模块接入同一引擎，只有出现明确的独立部署需求时才重新评估进程边界。
 
@@ -319,9 +317,13 @@ git submodule update --init --recursive
 ## 当前验证
 
 ```bash
-go test ./...
+make check
 (cd engine && go test ./...)
-(cd web && bun install && bun run lint && bun run build)
+(cd web && bun run check)
+make build-linux
+make build-windows
+STUTRADE_TEST_DATABASE_URL='postgres://...' make test-integration
+docker compose config --quiet
 ```
 
 更完整的业务范围和课程交付关系见 [`docs/implementation_plan.md`](docs/implementation_plan.md)。

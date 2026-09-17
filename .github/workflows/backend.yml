@@ -32,9 +32,22 @@ jobs:
     env:
       STUTRADE_TEST_DATABASE_URL: postgres://stutrade:stutrade@127.0.0.1:5432/stutrade_test?sslmode=disable
     steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            stu-trade
+            stu-trade-engine
+            stu-trade-web
+          permission-contents: read
       - uses: actions/checkout@v6
         with:
           submodules: recursive
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -55,9 +68,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            stu-trade
+            stu-trade-engine
+            stu-trade-web
+          permission-contents: read
       - uses: actions/checkout@v6
         with:
           submodules: recursive
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -79,9 +105,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            stu-trade
+            stu-trade-engine
+            stu-trade-web
+          permission-contents: read
       - uses: actions/checkout@v6
         with:
           submodules: recursive
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
       - name: Start develop assembly
         run: docker compose up -d --build --wait --wait-timeout 120
       - name: Verify backend and web

@@ -4,7 +4,7 @@ StuTrade 是面向校园交易场景的撮合平台。当前版本以二手书�
 
 ## 先看这里
 
-- 本仓库负责项目文档、业务宿主、HTTP 入口、PostgreSQL 适配和交付装配。
+- 本仓库负责项目文档、业务宿主、HTTP 入口、业务特有数据、PostgreSQL 适配和交付装配。
 - [`engine/`](engine/) 是独立 Go module submodule，负责通用挂单与撮合状态机。
 - [`web/`](web/) 是独立 React + TypeScript submodule，负责 OpenAPI 结构契约、页面和前端交付。
 - 当前代码已经具备部署配置、migration、健康检查、生成的 HTTP 服务端契约、引擎核心模型和前端应用骨架；完整交易业务 handler 尚未全部实现。生成的契约类型不代表对应业务能力已经可用。
@@ -14,16 +14,17 @@ StuTrade 是面向校园交易场景的撮合平台。当前版本以二手书�
 
 ```text
 web client --HTTP--> Gin: /api/v1 --> business host --> engine
-                                             |
-                                             +--> pgx: PostgreSQL
+                                             |              |
+                                             |              +--> engine Protocol --+
+                                             +--> host repositories --------------+--> PostgreSQL
 ```
 
 | 组件       | 当前责任                                                             |
 | ---------- | -------------------------------------------------------------------- |
-| 业务宿主   | 用户入口、领域数据与规则、撮合编排、交易确认、履约、HTTP 和运行装配  |
-| 撮合引擎   | 通用 Listing、MatchRequest、价格兼容与状态转换，不依赖 HTTP 或数据库 |
+| 业务宿主   | 用户、二手书与订单，业务规则、完整对象组装、HTTP 和运行装配          |
+| 撮合引擎   | 通用 Listing、MatchRequest、状态机及逻辑存取入口，不直连数据库        |
 | 前端       | 页面、交互、OpenAPI、生成的传输类型和独立静态产物                    |
-| PostgreSQL | 业务数据、约束、事务与并发正确性                                     |
+| PostgreSQL | engine 状态与宿主扩展的物理存储、约束、事务与并发正确性              |
 
 核心技术栈为 Go 1.27、Gin、pgx/v5、sqlc、goose、PostgreSQL、React 19、TypeScript 6、Vite 8 和 Bun 1.4。
 

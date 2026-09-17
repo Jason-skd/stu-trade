@@ -33,14 +33,17 @@ StuTrade 是面向校园交易场景的撮合平台。用户可以发布买方�
 
 ```text
 web client --HTTP--> Gin: /api/v1 --> business host --> engine
-                                             |
-                                             +--> pgx: PostgreSQL
+                                             |              |
+                                             |              +--> engine Protocol --+
+                                             +--> host repositories --------------+--> PostgreSQL
 ```
 
-- **业务宿主**拥有用户、二手书、订单和履约，执行领域规则并装配进程。
-- **撮合引擎**拥有通用 Listing、MatchRequest、价格兼容和状态转换，以同步、确定性的 Go library 运行。
+- **业务宿主**拥有用户、二手书、订单和履约，保存各业务特有的挂单资料，执行领域规则，并将这些资料与 engine 返回的通用状态组装为业务对象和 HTTP DTO。
+- **撮合引擎**拥有通用 Listing、MatchRequest、价格兼容、状态转换及其逻辑存取入口，以同步、确定性的 Go library 运行。
 - **前端**独立构建和部署，只通过后端 API 协作；后端不嵌入或提供前端资源。
-- **PostgreSQL**是独立数据服务，负责持久化约束、事务和并发正确性。
+- **PostgreSQL**是独立数据服务；宿主装配 engine 声明的存取 Protocol 与自身业务仓储，数据库约束和同一工作单元共同保证通用状态与业务扩展的完整性。
+
+engine 不直接连接数据库，也不认识 ISBN、图书或用户表。宿主提供的数据库适配器负责实现 engine Protocol，但宿主业务代码不得绕过 engine 直接恢复或修改 Listing、MatchRequest。宿主通过 Listing ID、资源引用和数据库外键关联自己的二手书资料；一个完整的“二手书挂单”由通用 Listing 与宿主资料在应用层组装而成。
 
 具体权威来源和跨仓库变更责任见[责任与权威来源](governance/ownership.md)。
 

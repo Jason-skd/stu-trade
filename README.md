@@ -27,5 +27,5 @@ git submodule update --init --recursive
 ```bash
 go test ./...
 (cd engine && go test ./...)
-(cd web && npm install && npm run lint && npm run build)
+(cd web && bun install && bun run lint && bun run build)
 ```

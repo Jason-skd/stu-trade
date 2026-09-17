@@ -70,6 +70,7 @@ func NewRouter(readiness *Readiness, authServer *AuthServer) http.Handler {
 	})
 	router.GET("/ready", readiness.Check)
 	if authServer != nil {
+		gin.EnableJsonDecoderDisallowUnknownFields()
 		strict := NewStrictHandlerWithOptions(authServer, nil, StrictGinServerOptions{
 			RequestErrorHandlerFunc: func(c *gin.Context, _ error) {
 				p := problem(http.StatusBadRequest, ValidationFailed, "Validation failed", "request body is invalid")

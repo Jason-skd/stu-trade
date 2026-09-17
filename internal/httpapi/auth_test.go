@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -44,6 +45,10 @@ func TestAuthHTTPFlowAndCookiePolicy(t *testing.T) {
 	if again.Code != http.StatusNoContent {
 		t.Fatalf("idempotent logout = %d", again.Code)
 	}
+	invalidCookie := authRequest(router, http.MethodDelete, "/api/v1/sessions/current", "", sessionCookieName+"=invalid")
+	if invalidCookie.Code != http.StatusNoContent {
+		t.Fatalf("invalid-cookie logout = %d", invalidCookie.Code)
+	}
 }
 
 func TestAuthHTTPProblems(t *testing.T) {
@@ -56,6 +61,44 @@ func TestAuthHTTPProblems(t *testing.T) {
 	missing := authRequest(router, http.MethodGet, "/api/v1/sessions/current", "", "")
 	if missing.Code != http.StatusUnauthorized || !strings.Contains(missing.Body.String(), "\"code\":\"unauthenticated\"") {
 		t.Fatalf("missing = (%d, %s)", missing.Code, missing.Body.String())
+	}
+	unknown := authRequest(router, http.MethodPost, "/api/v1/signup", "{\"email\":\"user@example.com\",\"nickname\":\"User\",\"password\":\"password123\",\"role\":\"admin\"}", "")
+	if unknown.Code != http.StatusBadRequest || !strings.Contains(unknown.Body.String(), "\"code\":\"validation_failed\"") {
+		t.Fatalf("unknown field = (%d, %s)", unknown.Code, unknown.Body.String())
+	}
+	malformed := authRequest(router, http.MethodPost, "/api/v1/login", "{", "")
+	if malformed.Code != http.StatusBadRequest || !strings.Contains(malformed.Body.String(), "\"code\":\"validation_failed\"") {
+		t.Fatalf("malformed JSON = (%d, %s)", malformed.Code, malformed.Body.String())
+	}
+}
+
+func TestAuthHTTPLoginConflictAndInternalProblems(t *testing.T) {
+	hash, err := auth.HashPassword("password123", httpRandom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &authHTTPStore{user: auth.StoredUser{User: auth.User{ID: uuid.New(), Email: "user@example.com", Nickname: "User"}, PasswordHash: hash}}
+	router := NewRouter(NewReadiness(&stubDatabasePinger{}, &stubMigrationChecker{}, discardLogger()), NewAuthServer(auth.NewService(store, time.Now, httpRandom), discardLogger(), false))
+
+	login := authRequest(router, http.MethodPost, "/api/v1/login", "{\"email\":\"user@example.com\",\"password\":\"password123\"}", "")
+	if login.Code != http.StatusOK || len(login.Result().Cookies()) != 1 || login.Result().Cookies()[0].Secure {
+		t.Fatalf("login = (%d, %#v)", login.Code, login.Result().Cookies())
+	}
+	wrong := authRequest(router, http.MethodPost, "/api/v1/login", "{\"email\":\"user@example.com\",\"password\":\"wrongpass\"}", "")
+	if wrong.Code != http.StatusUnauthorized || !strings.Contains(wrong.Body.String(), "\"code\":\"invalid_credentials\"") {
+		t.Fatalf("wrong credentials = (%d, %s)", wrong.Code, wrong.Body.String())
+	}
+
+	store.createUserErr = auth.ErrEmailTaken
+	conflict := authRequest(router, http.MethodPost, "/api/v1/signup", "{\"email\":\"user@example.com\",\"nickname\":\"Other\",\"password\":\"password456\"}", "")
+	if conflict.Code != http.StatusConflict || !strings.Contains(conflict.Body.String(), "\"code\":\"email_taken\"") {
+		t.Fatalf("email conflict = (%d, %s)", conflict.Code, conflict.Body.String())
+	}
+
+	store.findErr = errors.New("database unavailable")
+	internal := authRequest(router, http.MethodPost, "/api/v1/login", "{\"email\":\"user@example.com\",\"password\":\"password123\"}", "")
+	if internal.Code != http.StatusInternalServerError || !strings.Contains(internal.Body.String(), "\"code\":\"internal_error\"") || strings.Contains(internal.Body.String(), "database unavailable") {
+		t.Fatalf("internal error = (%d, %s)", internal.Code, internal.Body.String())
 	}
 }
 
@@ -80,22 +123,32 @@ func httpRandom(value []byte) (int, error) {
 }
 
 type authHTTPStore struct {
-	user   auth.StoredUser
-	digest []byte
+	user          auth.StoredUser
+	digest        []byte
+	createUserErr error
+	findErr       error
 }
 
 func (s *authHTTPStore) CreateUserSession(_ context.Context, user auth.StoredUser, digest []byte, _ time.Time, _ time.Time) error {
+	if s.createUserErr != nil {
+		return s.createUserErr
+	}
 	s.user = user
 	s.digest = append([]byte(nil), digest...)
 	return nil
 }
 func (s *authHTTPStore) FindUserByEmail(context.Context, string) (auth.StoredUser, error) {
+	if s.findErr != nil {
+		return auth.StoredUser{}, s.findErr
+	}
 	if s.user.ID == uuid.Nil {
 		return auth.StoredUser{}, auth.ErrUnauthenticated
 	}
 	return s.user, nil
 }
-func (s *authHTTPStore) CreateSession(context.Context, uuid.UUID, []byte, time.Time, time.Time) error {
+
+func (s *authHTTPStore) CreateSession(_ context.Context, _ uuid.UUID, digest []byte, _ time.Time, _ time.Time) error {
+	s.digest = append([]byte(nil), digest...)
 	return nil
 }
 func (s *authHTTPStore) FindSessionUser(_ context.Context, digest []byte, _ time.Time) (auth.User, error) {

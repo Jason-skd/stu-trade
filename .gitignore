@@ -3,6 +3,8 @@
 
 ### Go ###
 /bin/
+/dist/
+/.env
 /coverage.out
 *.test
 

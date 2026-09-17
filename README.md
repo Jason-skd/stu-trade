@@ -117,6 +117,20 @@ engine 声明完成当前用例所需的最小 Protocol，宿主的 `matching` �
 
 主仓库定义产品范围、成交语义、部署方式和 HTTP 公共边界；engine 仓库细化通用撮合 API 与状态机；web 仓库细化页面、交互和前端依赖。发生冲突时，以主仓库当前规划为产品基线，再同步修订子仓库，而不是在三处长期保留不同语义。实现后，Go 类型与测试是 engine 协议的事实来源，生成的 OpenAPI 是前后端 HTTP 协议的事实来源。
 
+每类契约只有一个责任方：
+
+| 契约 | 唯一责任方与权威来源 | 其他仓库的责任 |
+| ---- | -------------------- | -------------- |
+| 产品范围、用例语义、跨组件边界与部署拓扑 | 主仓库 `docs/` | engine 与 web 不另行扩展或改写产品语义 |
+| engine 导出的 Go Protocol、模型、错误与状态机 | engine 的导出代码和行为测试 | 宿主按实际版本实现适配器；主仓库文档只描述能力边界，不复制签名 |
+| HTTP 路径、DTO、状态码与错误结构 | 宿主接受并与运行时路由、DTO 同源的 OpenAPI | web 只从该 schema 生成传输类型，MSW 不另建契约 |
+| PostgreSQL schema、约束、锁与事务语义 | 主仓库 migrations、queries 与真实数据库集成测试 | engine 不感知 PostgreSQL；web 不推断持久化结构 |
+| 页面、交互、前端路由与前端发布 | web 实现和行为测试 | 主仓库只规定必须支持的用户流程和 HTTP 公共边界 |
+
+在宿主尚未实现 HTTP API 期间，`web/openapi/stu-trade.yaml` 是用于并行开发的临时提案，不是长期的第二份契约。宿主接受或修订它时，必须在同一项跨仓库变更中确定宿主侧唯一 schema，切换 web 的生成输入、MSW 和漂移检查，并删除或停止维护临时副本。契约演进先修改责任方的权威来源，再更新消费者；消费者的 README、手写 DTO 或 mock 响应不能反向成为事实来源。
+
+engine Protocol 遵循同一规则：每个 engine 用例只声明当前实际消费的小型能力接口。宿主拥有具体实现和事务保证，但不得在宿主中维护一套平行的 engine 接口；README 中的 `CandidateFinder`、`MatchPolicy`、`UnitOfWork` 和 `TradeCreator` 是能力边界名称，只有 engine 导出代码与测试落地后才构成具体运行契约。
+
 ## MVP 领域模型
 
 MVP 只保留完成当前用例所需的实体：

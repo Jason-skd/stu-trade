@@ -5,7 +5,6 @@
 bin
 dist
 docs
-engine
 web
 .env
 *.md

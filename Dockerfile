@@ -3,6 +3,7 @@
 FROM golang:1.27.1-alpine AS develop
 WORKDIR /workspace
 COPY go.mod go.sum ./
+COPY engine/go.mod ./engine/go.mod
 RUN go mod download
 COPY . .
 CMD ["go", "run", "./cmd/stu-trade", "serve", "--profile=develop"]
@@ -12,8 +13,10 @@ ARG VERSION=dev
 ARG COMMIT=unknown
 WORKDIR /src
 COPY go.mod go.sum ./
+COPY engine/go.mod ./engine/go.mod
 RUN go mod download
 COPY cmd ./cmd
+COPY engine ./engine
 COPY internal ./internal
 COPY migrations ./migrations
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \

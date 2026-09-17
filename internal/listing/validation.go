@@ -56,7 +56,7 @@ func validISBN10(value string) bool {
 }
 
 func validISBN13(value string) bool {
-	if len(value) != 13 {
+	if len(value) != 13 || (!strings.HasPrefix(value, "978") && !strings.HasPrefix(value, "979")) {
 		return false
 	}
 	sum := 0

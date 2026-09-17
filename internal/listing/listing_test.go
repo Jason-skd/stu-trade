@@ -20,6 +20,7 @@ func TestNormalizeISBN(t *testing.T) {
 		{name: "ISBN-10 X", input: " 0 8044 2957 X ", want: "9780804429573", valid: true},
 		{name: "ISBN-13", input: "978-0-306-40615-7", want: "9780306406157", valid: true},
 		{name: "bad checksum", input: "9780306406158"},
+		{name: "EAN without book prefix", input: "4006381333931"},
 		{name: "bad character", input: "97803064061A7"},
 		{name: "bad length", input: "123"},
 	}

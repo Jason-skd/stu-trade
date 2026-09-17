@@ -65,6 +65,14 @@ func TestLoginUnifiesCredentialFailures(t *testing.T) {
 	}
 }
 
+func TestMissingAccountUsesValidDummyHash(t *testing.T) {
+	service := NewService(&memoryStore{findErr: ErrUnauthenticated}, time.Now, deterministicRandom)
+	ok, err := VerifyPassword("any-password", service.dummyPasswordHash)
+	if err != nil || ok {
+		t.Fatalf("dummy password verification = (%t, %v)", ok, err)
+	}
+}
+
 func deterministicRandom(value []byte) (int, error) {
 	for i := range value {
 		value[i] = byte(i + 1)

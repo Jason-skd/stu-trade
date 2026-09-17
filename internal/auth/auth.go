@@ -51,9 +51,10 @@ type Clock func() time.Time
 type Random func([]byte) (int, error)
 
 type Service struct {
-	store  Store
-	now    Clock
-	random Random
+	store             Store
+	now               Clock
+	random            Random
+	dummyPasswordHash string
 }
 
 func NewService(store Store, now Clock, random Random) *Service {
@@ -63,7 +64,14 @@ func NewService(store Store, now Clock, random Random) *Service {
 	if random == nil {
 		random = rand.Read
 	}
-	return &Service{store: store, now: now, random: random}
+	dummySalt := []byte("stu-trade-dummy!")
+	dummyHash := argon2.IDKey([]byte("not-a-user-password"), dummySalt, 1, 64*1024, 4, 32)
+	return &Service{
+		store:             store,
+		now:               now,
+		random:            random,
+		dummyPasswordHash: encodePasswordHash(dummySalt, dummyHash),
+	}
 }
 
 func NormalizeEmail(value string) string    { return strings.ToLower(strings.TrimSpace(value)) }
@@ -126,6 +134,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (Session, e
 	user, err := s.store.FindUserByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, ErrUnauthenticated) {
+			_, _ = VerifyPassword(password, s.dummyPasswordHash)
 			return Session{}, ErrInvalidCredentials
 		}
 		return Session{}, err
@@ -192,7 +201,11 @@ func HashPassword(password string, random Random) (string, error) {
 		return "", err
 	}
 	hash := argon2.IDKey([]byte(password), salt, 1, 64*1024, 4, 32)
-	return fmt.Sprintf("$argon2id$v=19$m=65536,t=1,p=4$%s$%s", base64.RawStdEncoding.EncodeToString(salt), base64.RawStdEncoding.EncodeToString(hash)), nil
+	return encodePasswordHash(salt, hash), nil
+}
+
+func encodePasswordHash(salt, hash []byte) string {
+	return fmt.Sprintf("$argon2id$v=19$m=65536,t=1,p=4$%s$%s", base64.RawStdEncoding.EncodeToString(salt), base64.RawStdEncoding.EncodeToString(hash))
 }
 func VerifyPassword(password, encoded string) (bool, error) {
 	parts := strings.Split(encoded, "$")

@@ -14,11 +14,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// PostgresStore 使用 PostgreSQL 和 sqlc 实现认证持久化。
 type PostgresStore struct {
 	pool    *pgxpool.Pool
 	queries *db.Queries
 }
 
+// NewPostgresStore 创建复用应用连接池的认证存储。
 func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore {
 	return &PostgresStore{pool: pool, queries: db.New(pool)}
 }

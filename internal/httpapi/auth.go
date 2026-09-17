@@ -14,16 +14,19 @@ import (
 
 const sessionCookieName = "stu_trade_session"
 
+// AuthServer 将认证用例映射到生成的 strict HTTP 契约。
 type AuthServer struct {
 	service      *auth.Service
 	logger       *slog.Logger
 	secureCookie bool
 }
 
+// NewAuthServer 创建认证 HTTP 边界。
 func NewAuthServer(service *auth.Service, logger *slog.Logger, secureCookie bool) *AuthServer {
 	return &AuthServer{service: service, logger: logger, secureCookie: secureCookie}
 }
 
+// Signup 处理注册并设置新会话 Cookie。
 func (s *AuthServer) Signup(ctx context.Context, request SignupRequestObject) (SignupResponseObject, error) {
 	if request.Body == nil {
 		return signupValidation([]auth.FieldError{{Field: "body", Code: "required", Detail: "request body is required"}}), nil
@@ -50,6 +53,7 @@ func (s *AuthServer) Signup(ctx context.Context, request SignupRequestObject) (S
 	return Signup201JSONResponse{Body: transportSession(session.User), Headers: Signup201ResponseHeaders{SetCookie: &cookie}}, nil
 }
 
+// Login 处理凭据登录并设置新会话 Cookie。
 func (s *AuthServer) Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error) {
 	if request.Body == nil {
 		return loginValidation([]auth.FieldError{{Field: "body", Code: "required", Detail: "request body is required"}}), nil
@@ -76,6 +80,7 @@ func (s *AuthServer) Login(ctx context.Context, request LoginRequestObject) (Log
 	return Login200JSONResponse{Body: transportSession(session.User), Headers: Login200ResponseHeaders{SetCookie: &cookie}}, nil
 }
 
+// GetCurrentSession 恢复 Cookie 对应的当前会话。
 func (s *AuthServer) GetCurrentSession(ctx context.Context, _ GetCurrentSessionRequestObject) (GetCurrentSessionResponseObject, error) {
 	token := requestCookie(ctx)
 	user, err := s.service.Current(ctx, token)
@@ -90,6 +95,7 @@ func (s *AuthServer) GetCurrentSession(ctx context.Context, _ GetCurrentSessionR
 	return GetCurrentSession200JSONResponse(transportSession(user)), nil
 }
 
+// Logout 幂等删除会话并清除 Cookie。
 func (s *AuthServer) Logout(ctx context.Context, _ LogoutRequestObject) (LogoutResponseObject, error) {
 	if err := s.service.Logout(ctx, requestCookie(ctx)); err != nil {
 		s.logger.Error("logout failed", "error", err)

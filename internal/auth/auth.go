@@ -17,28 +17,38 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
+// SessionLifetime 是会话创建后的固定有效期。
 const SessionLifetime = 7 * 24 * time.Hour
 
 var (
-	ErrEmailTaken         = errors.New("email taken")
+	// ErrEmailTaken 表示规范化后的邮箱已注册。
+	ErrEmailTaken = errors.New("email taken")
+	// ErrInvalidCredentials 统一表示邮箱不存在或密码错误。
 	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrUnauthenticated    = errors.New("unauthenticated")
+	// ErrUnauthenticated 表示会话缺失、无效或已过期。
+	ErrUnauthenticated = errors.New("unauthenticated")
 )
 
+// User 是认证域向调用方提供的当前用户身份。
 type User struct {
 	ID              uuid.UUID
 	Email, Nickname string
 }
+
+// StoredUser 包含仅供认证存储使用的密码哈希。
 type StoredUser struct {
 	User
 	PasswordHash string
 }
+
+// Session 是新建会话及其一次性明文令牌。
 type Session struct {
 	User      User
 	Token     string
 	ExpiresAt time.Time
 }
 
+// Store 定义认证服务所需的最小持久化能力。
 type Store interface {
 	CreateUserSession(context.Context, StoredUser, []byte, time.Time, time.Time) error
 	FindUserByEmail(context.Context, string) (StoredUser, error)
@@ -47,9 +57,13 @@ type Store interface {
 	DeleteSession(context.Context, []byte) error
 }
 
+// Clock 提供可替换的当前时间。
 type Clock func() time.Time
+
+// Random 填充密码盐和会话令牌所需的随机字节。
 type Random func([]byte) (int, error)
 
+// Service 实现账户和固定期限会话规则。
 type Service struct {
 	store             Store
 	now               Clock
@@ -57,6 +71,7 @@ type Service struct {
 	dummyPasswordHash string
 }
 
+// NewService 创建认证服务；nil 时间或随机源使用安全默认值。
 func NewService(store Store, now Clock, random Random) *Service {
 	if now == nil {
 		now = time.Now
@@ -74,14 +89,21 @@ func NewService(store Store, now Clock, random Random) *Service {
 	}
 }
 
-func NormalizeEmail(value string) string    { return strings.ToLower(strings.TrimSpace(value)) }
+// NormalizeEmail 去除首尾空白并统一为小写。
+func NormalizeEmail(value string) string { return strings.ToLower(strings.TrimSpace(value)) }
+
+// NormalizeNickname 去除昵称首尾空白。
 func NormalizeNickname(value string) string { return strings.TrimSpace(value) }
 
+// FieldError 描述一个请求字段的稳定校验失败。
 type FieldError struct{ Field, Code, Detail string }
+
+// ValidationError 汇总请求中全部字段错误。
 type ValidationError struct{ Fields []FieldError }
 
 func (e *ValidationError) Error() string { return "validation failed" }
 
+// Validate 规范化并校验注册或登录输入。
 func Validate(email, nickname, password string, includeNickname bool) (string, string, error) {
 	email, nickname = NormalizeEmail(email), NormalizeNickname(nickname)
 	var fields []FieldError
@@ -105,6 +127,7 @@ func validEmail(value string) bool {
 	return err == nil && address.Address == value && strings.Contains(value, "@")
 }
 
+// Signup 在一个存储事务中创建用户和首个会话。
 func (s *Service) Signup(ctx context.Context, email, nickname, password string) (Session, error) {
 	email, nickname, err := Validate(email, nickname, password, true)
 	if err != nil {
@@ -126,6 +149,7 @@ func (s *Service) Signup(ctx context.Context, email, nickname, password string) 
 	return Session{User: user, Token: token, ExpiresAt: now.Add(SessionLifetime)}, nil
 }
 
+// Login 校验凭据并创建固定期限会话。
 func (s *Service) Login(ctx context.Context, email, password string) (Session, error) {
 	email, _, err := Validate(email, "", password, false)
 	if err != nil {
@@ -157,6 +181,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (Session, e
 	return Session{User: user.User, Token: token, ExpiresAt: now.Add(SessionLifetime)}, nil
 }
 
+// Current 返回有效令牌对应的当前用户。
 func (s *Service) Current(ctx context.Context, token string) (User, error) {
 	digest, ok := TokenDigest(token)
 	if !ok {
@@ -164,6 +189,8 @@ func (s *Service) Current(ctx context.Context, token string) (User, error) {
 	}
 	return s.store.FindSessionUser(ctx, digest, s.now().UTC())
 }
+
+// Logout 幂等删除可识别令牌对应的会话。
 func (s *Service) Logout(ctx context.Context, token string) error {
 	digest, ok := TokenDigest(token)
 	if !ok {
@@ -183,6 +210,8 @@ func (s *Service) newToken() (string, []byte, error) {
 	digest, _ := TokenDigest(token)
 	return token, digest, nil
 }
+
+// TokenDigest 校验令牌编码并返回用于持久化的 SHA-256 摘要。
 func TokenDigest(token string) ([]byte, bool) {
 	raw, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil || len(raw) != 32 {
@@ -192,6 +221,7 @@ func TokenDigest(token string) ([]byte, bool) {
 	return sum[:], true
 }
 
+// HashPassword 使用随机盐生成 Argon2id PHC 字符串。
 func HashPassword(password string, random Random) (string, error) {
 	salt := make([]byte, 16)
 	if n, err := random(salt); err != nil || n != len(salt) {
@@ -207,6 +237,8 @@ func HashPassword(password string, random Random) (string, error) {
 func encodePasswordHash(salt, hash []byte) string {
 	return fmt.Sprintf("$argon2id$v=19$m=65536,t=1,p=4$%s$%s", base64.RawStdEncoding.EncodeToString(salt), base64.RawStdEncoding.EncodeToString(hash))
 }
+
+// VerifyPassword 校验密码与受支持的 Argon2id PHC 字符串。
 func VerifyPassword(password, encoded string) (bool, error) {
 	parts := strings.Split(encoded, "$")
 	if len(parts) != 6 || parts[1] != "argon2id" || parts[2] != "v=19" || parts[3] != "m=65536,t=1,p=4" {

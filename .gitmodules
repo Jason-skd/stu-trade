@@ -1,0 +1,6 @@
+[submodule "engine"]
+	path = engine
+	url = git@github.com:Jason-skd/stu-trade-engine.git
+[submodule "web"]
+	path = web
+	url = git@github.com:Jason-skd/stu-trade-web.git

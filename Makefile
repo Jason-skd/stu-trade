@@ -49,7 +49,7 @@ test:
 	GOFLAGS=-mod=readonly go test -race -timeout 10m ./...
 
 test-integration:
-	GOFLAGS=-mod=readonly go test -race -timeout 10m -tags=integration ./internal/auth ./migrations
+	GOFLAGS=-mod=readonly go test -count=1 -race -timeout 10m -tags=integration ./internal/auth ./migrations
 
 engine-check: submodules-check
 	@test -z "$$(cd engine && gofmt -l .)" || (echo "engine: files need formatting"; cd engine && gofmt -l .; exit 1)

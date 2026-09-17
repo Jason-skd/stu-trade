@@ -211,6 +211,13 @@ func (e ProblemCode) Valid() bool {
 	}
 }
 
+// AcceptBuyRequestInput Actual book the seller will deliver; this does not create a public sale listing.
+type AcceptBuyRequestInput struct {
+	Book      Book      `json:"book"`
+	Condition Condition `json:"condition"`
+	Note      *string   `json:"note,omitempty"`
+}
+
 // Book defines model for Book.
 type Book struct {
 	Author        string  `json:"author"`
@@ -265,6 +272,7 @@ type Currency string
 
 // DirectTradeResult defines model for DirectTradeResult.
 type DirectTradeResult struct {
+	// Match Automatic matches reference both listings; direct trades reference only the real target listing.
 	Match Match `json:"match"`
 	Order Order `json:"order"`
 }
@@ -291,21 +299,45 @@ type LoginInput struct {
 	Password *string             `json:"password,omitempty"`
 }
 
-// Match defines model for Match.
+// Match Automatic matches reference both listings; direct trades reference only the real target listing.
 type Match struct {
-	AgreedPrice      Money      `json:"agreedPrice"`
-	BuyRequest       BuyRequest `json:"buyRequest"`
-	BuyerConfirmedAt *time.Time `json:"buyerConfirmedAt"`
-	CreatedAt        time.Time  `json:"createdAt"`
+	AgreedPrice Money `json:"agreedPrice"`
+
+	// BuyRequest Required for automatic matches and direct acceptances; absent for direct purchases without a real buy request.
+	BuyRequest       *BuyRequest `json:"buyRequest,omitempty"`
+	BuyerConfirmedAt *time.Time  `json:"buyerConfirmedAt"`
+	CreatedAt        time.Time   `json:"createdAt"`
 
 	// Id Opaque identifier.
-	Id                Id          `json:"id"`
-	OrderId           *string     `json:"orderId,omitempty"`
-	SellListing       SellListing `json:"sellListing"`
-	SellerConfirmedAt *time.Time  `json:"sellerConfirmedAt"`
-	Source            MatchSource `json:"source"`
-	Status            MatchStatus `json:"status"`
-	UpdatedAt         time.Time   `json:"updatedAt"`
+	Id      Id      `json:"id"`
+	OrderId *string `json:"orderId,omitempty"`
+
+	// SellListing Required for automatic matches and direct purchases; absent for direct acceptances without a real sale listing.
+	SellListing       *SellListing `json:"sellListing,omitempty"`
+	SellerConfirmedAt *time.Time   `json:"sellerConfirmedAt"`
+	Source            MatchSource  `json:"source"`
+	Status            MatchStatus  `json:"status"`
+	UpdatedAt         time.Time    `json:"updatedAt"`
+	union             json.RawMessage
+}
+
+// Match0 defines model for Match.0.
+type Match0 struct {
+	BuyRequest  BuyRequest  `json:"buyRequest"`
+	SellListing SellListing `json:"sellListing"`
+	Source      interface{} `json:"source"`
+}
+
+// Match1 defines model for Match.1.
+type Match1 struct {
+	SellListing SellListing `json:"sellListing"`
+	Source      interface{} `json:"source"`
+}
+
+// Match2 defines model for Match.2.
+type Match2 struct {
+	BuyRequest BuyRequest  `json:"buyRequest"`
+	Source     interface{} `json:"source"`
 }
 
 // MatchPage defines model for MatchPage.
@@ -507,6 +539,9 @@ type ListSellListingsParams struct {
 // CreateBuyRequestJSONRequestBody defines body for CreateBuyRequest for application/json ContentType.
 type CreateBuyRequestJSONRequestBody = CreateBuyRequestInput
 
+// AcceptBuyRequestJSONRequestBody defines body for AcceptBuyRequest for application/json ContentType.
+type AcceptBuyRequestJSONRequestBody = AcceptBuyRequestInput
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginInput
 
@@ -515,6 +550,253 @@ type CreateSellListingJSONRequestBody = CreateSellListingInput
 
 // SignupJSONRequestBody defines body for Signup for application/json ContentType.
 type SignupJSONRequestBody = SignupInput
+
+// AsMatch0 returns the union data inside the Match as a Match0
+func (t Match) AsMatch0() (Match0, error) {
+	var body Match0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMatch0 overwrites any union data inside the Match as the provided Match0
+func (t *Match) FromMatch0(v Match0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMatch0 performs a merge with any union data inside the Match, using the provided Match0
+func (t *Match) MergeMatch0(v Match0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMatch1 returns the union data inside the Match as a Match1
+func (t Match) AsMatch1() (Match1, error) {
+	var body Match1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMatch1 overwrites any union data inside the Match as the provided Match1
+func (t *Match) FromMatch1(v Match1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMatch1 performs a merge with any union data inside the Match, using the provided Match1
+func (t *Match) MergeMatch1(v Match1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMatch2 returns the union data inside the Match as a Match2
+func (t Match) AsMatch2() (Match2, error) {
+	var body Match2
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMatch2 overwrites any union data inside the Match as the provided Match2
+func (t *Match) FromMatch2(v Match2) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMatch2 performs a merge with any union data inside the Match, using the provided Match2
+func (t *Match) MergeMatch2(v Match2) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t Match) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	object := make(map[string]json.RawMessage)
+	if t.union != nil {
+		err = json.Unmarshal(b, &object)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	object["agreedPrice"], err = json.Marshal(t.AgreedPrice)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'agreedPrice': %w", err)
+	}
+
+	if t.BuyRequest != nil {
+		object["buyRequest"], err = json.Marshal(t.BuyRequest)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'buyRequest': %w", err)
+		}
+	}
+
+	object["buyerConfirmedAt"], err = json.Marshal(t.BuyerConfirmedAt)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'buyerConfirmedAt': %w", err)
+	}
+
+	object["createdAt"], err = json.Marshal(t.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'createdAt': %w", err)
+	}
+
+	object["id"], err = json.Marshal(t.Id)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'id': %w", err)
+	}
+
+	if t.OrderId != nil {
+		object["orderId"], err = json.Marshal(t.OrderId)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'orderId': %w", err)
+		}
+	}
+
+	if t.SellListing != nil {
+		object["sellListing"], err = json.Marshal(t.SellListing)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'sellListing': %w", err)
+		}
+	}
+
+	object["sellerConfirmedAt"], err = json.Marshal(t.SellerConfirmedAt)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'sellerConfirmedAt': %w", err)
+	}
+
+	object["source"], err = json.Marshal(t.Source)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'source': %w", err)
+	}
+
+	object["status"], err = json.Marshal(t.Status)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'status': %w", err)
+	}
+
+	object["updatedAt"], err = json.Marshal(t.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'updatedAt': %w", err)
+	}
+
+	b, err = json.Marshal(object)
+	return b, err
+}
+
+func (t *Match) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	if err != nil {
+		return err
+	}
+	object := make(map[string]json.RawMessage)
+	err = json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["agreedPrice"]; found {
+		err = json.Unmarshal(raw, &t.AgreedPrice)
+		if err != nil {
+			return fmt.Errorf("error reading 'agreedPrice': %w", err)
+		}
+	}
+
+	if raw, found := object["buyRequest"]; found {
+		err = json.Unmarshal(raw, &t.BuyRequest)
+		if err != nil {
+			return fmt.Errorf("error reading 'buyRequest': %w", err)
+		}
+	}
+
+	if raw, found := object["buyerConfirmedAt"]; found {
+		err = json.Unmarshal(raw, &t.BuyerConfirmedAt)
+		if err != nil {
+			return fmt.Errorf("error reading 'buyerConfirmedAt': %w", err)
+		}
+	}
+
+	if raw, found := object["createdAt"]; found {
+		err = json.Unmarshal(raw, &t.CreatedAt)
+		if err != nil {
+			return fmt.Errorf("error reading 'createdAt': %w", err)
+		}
+	}
+
+	if raw, found := object["id"]; found {
+		err = json.Unmarshal(raw, &t.Id)
+		if err != nil {
+			return fmt.Errorf("error reading 'id': %w", err)
+		}
+	}
+
+	if raw, found := object["orderId"]; found {
+		err = json.Unmarshal(raw, &t.OrderId)
+		if err != nil {
+			return fmt.Errorf("error reading 'orderId': %w", err)
+		}
+	}
+
+	if raw, found := object["sellListing"]; found {
+		err = json.Unmarshal(raw, &t.SellListing)
+		if err != nil {
+			return fmt.Errorf("error reading 'sellListing': %w", err)
+		}
+	}
+
+	if raw, found := object["sellerConfirmedAt"]; found {
+		err = json.Unmarshal(raw, &t.SellerConfirmedAt)
+		if err != nil {
+			return fmt.Errorf("error reading 'sellerConfirmedAt': %w", err)
+		}
+	}
+
+	if raw, found := object["source"]; found {
+		err = json.Unmarshal(raw, &t.Source)
+		if err != nil {
+			return fmt.Errorf("error reading 'source': %w", err)
+		}
+	}
+
+	if raw, found := object["status"]; found {
+		err = json.Unmarshal(raw, &t.Status)
+		if err != nil {
+			return fmt.Errorf("error reading 'status': %w", err)
+		}
+	}
+
+	if raw, found := object["updatedAt"]; found {
+		err = json.Unmarshal(raw, &t.UpdatedAt)
+		if err != nil {
+			return fmt.Errorf("error reading 'updatedAt': %w", err)
+		}
+	}
+
+	return err
+}
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -1445,6 +1727,7 @@ func (response GetBuyRequest500ApplicationProblemPlusJSONResponse) VisitGetBuyRe
 
 type AcceptBuyRequestRequestObject struct {
 	BuyRequestId BuyRequestId `json:"buyRequestId"`
+	Body         *AcceptBuyRequestJSONRequestBody
 }
 
 type AcceptBuyRequestResponseObject interface {
@@ -1461,6 +1744,22 @@ func (response AcceptBuyRequest201JSONResponse) VisitAcceptBuyRequestResponse(w 
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptBuyRequest400ApplicationProblemPlusJSONResponse struct {
+	ValidationProblemApplicationProblemPlusJSONResponse
+}
+
+func (response AcceptBuyRequest400ApplicationProblemPlusJSONResponse) VisitAcceptBuyRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1705,6 +2004,14 @@ type ConfirmMatchResponseObject interface {
 
 type ConfirmMatch200JSONResponse Match
 
+func (t ConfirmMatch200JSONResponse) MarshalJSON() ([]byte, error) {
+	return Match(t).MarshalJSON()
+}
+
+func (t *ConfirmMatch200JSONResponse) UnmarshalJSON(b []byte) error {
+	return (*Match)(t).UnmarshalJSON(b)
+}
+
 func (response ConfirmMatch200JSONResponse) VisitConfirmMatchResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
@@ -1806,6 +2113,14 @@ type DeclineMatchResponseObject interface {
 }
 
 type DeclineMatch200JSONResponse Match
+
+func (t DeclineMatch200JSONResponse) MarshalJSON() ([]byte, error) {
+	return Match(t).MarshalJSON()
+}
+
+func (t *DeclineMatch200JSONResponse) UnmarshalJSON(b []byte) error {
+	return (*Match)(t).UnmarshalJSON(b)
+}
 
 func (response DeclineMatch200JSONResponse) VisitDeclineMatchResponse(w http.ResponseWriter) error {
 
@@ -2883,6 +3198,13 @@ func (sh *strictHandler) AcceptBuyRequest(ctx *gin.Context, buyRequestId BuyRequ
 	var request AcceptBuyRequestRequestObject
 
 	request.BuyRequestId = buyRequestId
+
+	var body AcceptBuyRequestJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
 
 	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.AcceptBuyRequest(ctx, request.(AcceptBuyRequestRequestObject))

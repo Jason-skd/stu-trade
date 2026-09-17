@@ -8,7 +8,7 @@ StuTrade 是面向校园交易场景的撮合平台。本仓库的 `docs/` 是�
 
 - **业务宿主**负责用户入口、领域数据、领域规则、撮合编排、交易确认和履约流程。
 - **撮合引擎**负责需求、供给、候选匹配和撮合请求等通用能力，不依赖 Gin、PostgreSQL 或具体领域。
-- **前端**独立构建和部署，只通过后端 API 协作；后端不构建、嵌入或提供前端资源。
+- **前端**独立实现和部署，只通过后端 API 协作；主仓库从固定的 web submodule 构建交付物，但后端不嵌入或提供前端资源。
 - **PostgreSQL**是独立运行的数据服务，不打包进宿主程序。
 
 主仓库文档描述整个项目如何发展；各子仓库只维护所属代码、局部开发入口和由代码生成的契约产物。跨仓库设计变更必须先更新主仓库文档，再在对应实现仓库落地，不能让三个 README 演化成互相竞争的产品规范。
@@ -39,11 +39,11 @@ sqlc 生成代码属于数据库适配层，不直接作为 HTTP DTO 或业务�
 
 项目将运行环境定义为三个部署配置。部署配置负责选择依赖和运行参数，不改变业务规则，也不等同于 Gin 的 `debug`、`release` 和 `test` 模式。
 
-| 配置         | 中文名称               | 运行方式                   | PostgreSQL                | Migration          |
-| ------------ | ---------------------- | -------------------------- | ------------------------- | ------------------ |
-| `develop`    | 本地开发模式           | `docker compose` 一键启动  | Compose 容器              | 启动时自动执行     |
-| `native`     | 本机运行模式（本机版） | 用户运行唯一的 Windows exe | 用户电脑预装的 PostgreSQL | exe 启动时自动执行 |
-| `production` | 托管生产模式           | CI/CD 部署到项目服务器     | 服务器或托管 PostgreSQL   | CI/CD 发布阶段执行 |
+| 配置         | 中文名称               | 根仓库装配结果                              | PostgreSQL                | Migration          |
+| ------------ | ---------------------- | ------------------------------------------- | ------------------------- | ------------------ |
+| `develop`    | 本地开发模式           | Compose 启动宿主、web HMR 和本地依赖        | Compose 容器              | 启动时自动执行     |
+| `native`     | 本机运行模式（本机版） | Windows 后端 exe 与独立 web 静态产物        | 用户电脑预装的 PostgreSQL | exe 启动时自动执行 |
+| `production` | 托管生产模式           | 后端容器、Linux 二进制与独立 web 静态产物   | 服务器或托管 PostgreSQL   | CI/CD 发布阶段执行 |
 
 同一个命令入口承载各配置：
 
@@ -60,17 +60,17 @@ stu-trade version
 
 ### 本机运行模式
 
-本机版 exe 在 `127.0.0.1` 启动后端 API。它不包含界面，也不要求 Bun、Node.js、Docker 或 C 运行库。
+本机版 exe 在 `127.0.0.1` 启动后端 API。它不包含界面，也不要求 Bun、Node.js、Docker 或 C 运行库。`make native` 同时从固定的 web submodule 生成独立静态产物；如何展示或托管这些产物属于 web 交付边界，不进入后端进程。
 
 老师的电脑需要提前安装、启动并按课程约定配置 PostgreSQL。直接运行 exe 时，宿主使用内置的本机默认连接参数自动连接，不要求用户输入命令行参数；连接成功后自动建表或升级 schema。宿主不负责安装 PostgreSQL，也不在缺少管理员凭据时创建数据库用户或数据库。开发和本机环境允许通过 `STUTRADE_DATABASE_URL` 覆盖约定默认值；生产连接信息只能由 CI/CD Secret 或服务器环境注入。
 
 ### 托管生产模式
 
-CI 构建 Go 服务，CD 在发布阶段执行 migration，再部署服务。服务监听内部端口，由反向代理或平台入口负责域名、TLS 和公网流量。
+CI 从固定的 submodule 版本构建 Go 服务和 web 静态产物。CD 在发布阶段执行 migration，再分别部署后端容器和前端产物；反向代理或平台入口负责域名、TLS 和公网流量。
 
 ### 本地开发模式
 
-Docker Compose 只负责启动 PostgreSQL 和后端宿主。前端仓库独立运行自己的开发服务器，并将 API 请求代理到后端；后端 Compose 不连接生产服务或生产数据库。
+`make develop` 通过 Docker Compose 启动 PostgreSQL、后端宿主和来自 web submodule 的 Vite 开发服务器。Vite 将 `/api` 代理到后端并保留 HMR；后端容器仍不包含前端代码或静态资源，也不连接生产服务或生产数据库。
 
 ## MVP 范围
 
@@ -116,7 +116,7 @@ engine 声明完成当前用例所需的最小 Protocol，宿主的 `matching` �
 
 ### 跨仓库契约
 
-主仓库 `docs/` 定义产品范围、成交语义、部署方式和 HTTP 公共边界；engine 仓库实现通用撮合 API 与状态机；web 仓库实现页面、交互和前端依赖。发生冲突时，以主仓库当前规划为产品基线，再同步修订子仓库，而不是在三处长期保留不同语义。实现后，Go 类型与测试是 engine 运行协议的权威实现，生成的 OpenAPI 是前后端 HTTP 结构契约的权威产物，但二者都不能另行定义产品语义。
+主仓库 `docs/` 定义产品范围、成交语义、部署方式和跨组件边界；engine 仓库实现通用撮合 API 与状态机；web 仓库提出并维护前后端共同消费的 OpenAPI，同时实现页面、交互和前端依赖。发生冲突时，以主仓库当前规划为产品基线修订契约，而不是让结构定义反向改写产品语义。
 
 每类契约只有一个责任方：
 
@@ -124,11 +124,11 @@ engine 声明完成当前用例所需的最小 Protocol，宿主的 `matching` �
 | ---- | -------------------- | -------------- |
 | 产品范围、用例语义、跨组件边界与部署拓扑 | 主仓库 `docs/` | engine 与 web 不另行扩展或改写产品语义 |
 | engine 导出的 Go Protocol、模型、错误与状态机 | engine 的导出代码和行为测试 | 宿主按实际版本实现适配器；主仓库文档只描述能力边界，不复制签名 |
-| HTTP 路径、DTO、状态码与错误结构 | 宿主接受并与运行时路由、DTO 同源的 OpenAPI | web 只从该 schema 生成传输类型，MSW 不另建契约 |
+| `/api/v1` 业务路径、DTO、状态码与错误结构 | web 的 `openapi/stu-trade.yaml` | web 提出并演进契约、生成 TypeScript 传输类型和 MSW；宿主审查语义、安全与幂等要求，并生成和实现服务端传输契约；主仓库固定 web gitlink 并执行跨仓库契约检查 |
 | PostgreSQL schema、约束、锁与事务语义 | 主仓库 migrations、queries 与真实数据库集成测试 | engine 不感知 PostgreSQL；web 不推断持久化结构 |
 | 页面、交互、前端路由与前端发布 | web 实现和行为测试 | 主仓库只规定必须支持的用户流程和 HTTP 公共边界 |
 
-在宿主尚未实现 HTTP API 期间，`web/openapi/stu-trade.yaml` 是用于并行开发的临时提案，不是长期的第二份契约。宿主接受或修订它时，必须在同一项跨仓库变更中确定宿主侧唯一 schema，切换 web 的生成输入、MSW 和漂移检查，并删除或停止维护临时副本。契约演进先修改责任方的权威来源，再更新消费者；消费者的 README、手写 DTO 或 mock 响应不能反向成为事实来源。
+`web/openapi/stu-trade.yaml` 是业务 HTTP 结构契约的唯一真相源，不在宿主中复制第二份 schema。web 负责从调用方需求提出并演进契约；后端在评审中质疑不符合产品语义、安全、幂等或实现约束的设计，并只实现双方接受的版本。主仓库通过 web gitlink 固定每次集成和发布使用的精确契约版本，在 CI 中校验双方生成结果和服务端接口；每个真实 operation 落地时再随 handler 增加契约测试。生成的传输类型不作为领域实体，OpenAPI 也不能定义或改变主仓库 `docs/` 所拥有的产品语义。`/health` 和 `/ready` 是宿主自有的运维端点，不属于 web 消费的业务 API。
 
 engine Protocol 遵循同一规则：每个 engine 用例只声明当前实际消费的小型能力接口。宿主拥有具体实现和事务保证，但不得在宿主中维护一套平行的 engine 接口；README 中的 `CandidateFinder`、`MatchPolicy`、`UnitOfWork` 和 `TradeCreator` 是能力边界名称，只有 engine 导出代码与测试落地后才构成具体运行契约。
 
@@ -213,7 +213,7 @@ goose migration 嵌入发布二进制。`native` 启动时只执行向前 migrat
 
 ## HTTP 边界
 
-业务 API 统一放在 `/api/v1`；`/health` 只表示进程存活，`/ready` 检查 PostgreSQL 和 schema 是否可用。运行时 API 结构与 OpenAPI 文档必须来自同一份路由和 DTO 定义，不能由 README 手工维护另一份字段清单。
+业务 API 统一放在 `/api/v1`；`/health` 只表示进程存活，`/ready` 检查 PostgreSQL 可达且 Goose 没有待应用 migration。`web/openapi/stu-trade.yaml` 生成前端传输类型以及宿主的 DTO、Gin 路由接口和 strict 响应接口，README 和手写 DTO 都不能维护平行结构。
 
 用户、会话、出售挂单、求购需求、撮合和订单资源均映射到该版本前缀。前端通过独立发布的客户端和生成契约访问这些 API，后端不提供 SPA fallback 或静态资源路径。
 
@@ -221,20 +221,23 @@ goose migration 嵌入发布二进制。`native` 启动时只执行向前 migrat
 
 MVP 用户系统采用宿主自有的本地账户：密码只保存安全哈希，登录态使用 `HttpOnly`、`SameSite` Cookie，并由服务端验证。开发代理和生产入口由前端部署或反向代理配置，不进入后端业务层。
 
-Gin 注册健康检查和 `/api/v1`。不存在的路径统一返回后端 404，不回退到前端页面。
+Gin 当前注册 `/health` 和 `/ready`。业务 handler 落地时必须通过生成的 `/api/v1` Gin 接口注册并实现 strict 响应接口；不存在的路径统一返回后端 404，不回退到前端页面。
 
 ## 配置、构建与发布
 
 部署配置只在 `internal/app` 的装配边界生效。领域包和 engine 不读取 `STUTRADE_PROFILE`，也不根据 `develop`、`native` 或 `production` 分支业务行为。配置加载顺序为命令行显式参数、环境变量、对应 profile 默认值；生产环境缺少必需配置时直接拒绝启动。
 
-发布构建按以下顺序进行：
+根 Makefile 是本地与 CI 共用的构建入口：
 
-1. 校验 sqlc 生成结果和 migration 同步状态。
-2. 执行 Go 格式、静态检查和测试。
-3. 生成 Linux 服务和 Windows 本机版二进制。
-4. 构建 production 容器镜像。
+```bash
+make run          # 加载可选 .env，直接运行后端
+make develop      # 装配本地 PostgreSQL、后端和 web HMR
+make native       # 输出 dist/native
+make production   # 输出 dist/production 并构建后端镜像
+make check        # 校验宿主、engine、web 和生成契约
+```
 
-构建产物不依赖 Bun、Node.js、Docker 或 C 编译运行库。二进制包含 migration、版本号和构建提交信息，不包含前端资源。`native` 可以包含课程约定的本地 PostgreSQL 默认连接参数；它绝不复用生产凭据。`production` 只从部署环境读取密钥和数据库连接信息。
+本地 `make run` 按 shell 语义加载未提交的 `.env`，配置键见 [`.env.example`](.env.example)。构建过程需要 Go、Bun 和相应 profile 使用的 Docker；交付出的后端二进制和 web 静态文件不依赖这些构建工具。后端二进制包含 migration、版本号和构建提交信息，不包含前端资源。`native` 使用课程约定的本地 PostgreSQL 默认连接参数但绝不复用生产凭据；`production` 只从部署环境读取密钥和数据库连接信息。
 
 ## 验证计划
 
@@ -258,7 +261,7 @@ Gin 注册健康检查和 `/api/v1`。不存在的路径统一返回后端 404�
 3. **主动购买纵切**：买方能够直接购买供给，按卖方报价创建 completed MatchRequest 和唯一订单；先验证最小 engine Protocol、事务与订单协作。
 4. **主动接单纵切**：卖方提交实际书籍接受需求，按买方报价成交，并复用主动购买的核心而非增加 mode 驱动的平行流程。
 5. **自动撮合纵切**：发布相容挂单后产生 pending MatchRequest，双方确认后只建立一笔订单；覆盖候选排序、规则拒绝和并发确认。
-6. **履约与交付**：双方查看订单并完成最小履约；验证 develop 一键启动、native 单 exe 和 production CI/CD 三条发布路径。
+6. **履约与交付**：双方查看订单并完成最小履约；验证 develop 一键启动、native 分离产物和 production CI/CD 三条发布路径。
 
 每一阶段在本仓库交付对应 migration、生成代码、API 和后端测试；前端在独立仓库按相同 HTTP 契约推进。MVP 完成标准是跨仓库集成环境能够演示三条核心路径，关键并发场景有自动化回归测试，且后端同一提交能够构建 Linux 服务与 Windows 本机版。
 
@@ -282,11 +285,11 @@ stu-trade/
 ├── queries/                   # 按领域组织的 sqlc 查询源
 ├── engine/                    # 通用撮合引擎 submodule
 ├── web/                       # React 前端 submodule
-├── build/                     # Windows 本机版打包与构建辅助脚本
 ├── compose.yaml               # develop 一键启动
+├── dist/                      # native/production 组装结果，不提交
 ├── sqlc.yaml
 ├── Makefile
-├── Dockerfile                 # develop/production 多阶段镜像构建
+├── Dockerfile                 # 后端 develop/production 多阶段镜像构建
 └── go.mod
 ```
 
@@ -318,12 +321,33 @@ git submodule update --init --recursive
 
 ```bash
 make check
-(cd engine && go test ./...)
-(cd web && bun run check)
-make build-linux
-make build-windows
 STUTRADE_TEST_DATABASE_URL='postgres://...' make test-integration
+make native
+make production
 docker compose config --quiet
 ```
 
-更完整的业务范围和课程交付关系见 [`docs/implementation_plan.md`](docs/implementation_plan.md)。
+## 文档索引
+
+项目规划：
+
+- [实施方案](docs/implementation_plan.md)
+
+仓库治理：
+
+- [实现规范](docs/governance/implementation.md)
+- [接口规范](docs/governance/interfaces.md)
+- [仓库协作规范](docs/governance/repository-workflow.md)
+- [验证规范](docs/governance/verification.md)
+
+课程要求译文：
+
+- [小组项目说明与提交要求](docs/course-requirement-translation/01-JC2001小组项目说明与提交要求-2026-27.md)
+- [项目提案模板](docs/course-requirement-translation/02-项目提案模板.md)
+- [小组工作量档案](docs/course-requirement-translation/03-小组工作量档案.md)
+
+课程原始文件：
+
+- [Group workload profile](<docs/course-requirement/Group workload profile (Introduction to software engineering).docx>)
+- [Group project description and requirements](docs/course-requirement/JC2001-GroupProjectDescription-and-Requirements-2026-27.pdf)
+- [Proposal template](docs/course-requirement/Proposal_Template.pdf)

@@ -49,6 +49,8 @@ proposal itself depends on unresolved technical facts.
 
 - Documentation states currently valid facts. Remove stale statements and
   maintain affected indexes and entry points.
+- The root README is the canonical index for every file under `docs/`. Add,
+  remove, or move a document and update that index in the same change.
 - Do not create indexes, plans, or compatibility notes merely for symmetry.
 - Format Markdown tables and check whitespace before committing.
 - Runtime structures and generated documentation share authoritative sources;

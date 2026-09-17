@@ -31,6 +31,7 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--output-document=-", "http://127.0.0.1:8080/health"]
+      start_period: 60s
       interval: 2s
       timeout: 3s
       retries: 15

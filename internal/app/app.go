@@ -14,26 +14,36 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+const startupTimeout = 5 * time.Second
+
 // Serve 装配依赖并运行 HTTP 服务，直到上下文取消或服务失败。
 func Serve(ctx context.Context, cfg Config, logger *slog.Logger) error {
+	startupCtx, cancelStartup := context.WithTimeout(ctx, startupTimeout)
+	defer cancelStartup()
+
 	// === 准备数据库 ===
 	if cfg.RunMigrations {
-		if err := migrations.Up(ctx, cfg.DatabaseURL, logger); err != nil {
+		if err := migrations.Up(startupCtx, cfg.DatabaseURL, logger); err != nil {
 			return err
 		}
 	}
-	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	pool, err := pgxpool.New(startupCtx, cfg.DatabaseURL)
 	if err != nil {
 		return fmt.Errorf("create database pool: %w", err)
 	}
 	defer pool.Close()
-	if err := pool.Ping(ctx); err != nil {
+	if err := pool.Ping(startupCtx); err != nil {
 		return fmt.Errorf("connect to database: %w", err)
 	}
+	migrationChecker, err := migrations.NewChecker(pool, logger)
+	if err != nil {
+		return err
+	}
+	defer migrationChecker.Close()
 
 	// === 装配协议入口 ===
 	queries := db.New(pool)
-	readiness := httpapi.NewReadiness(queries, migrations.LatestVersion())
+	readiness := httpapi.NewReadiness(queries, migrationChecker, logger)
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           httpapi.NewRouter(readiness),

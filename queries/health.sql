@@ -1,4 +1,2 @@
--- name: GetSchemaVersion :one
-SELECT version
-FROM app_schema
-WHERE singleton;
+-- name: Ping :one
+SELECT 1;

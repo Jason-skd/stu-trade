@@ -6,41 +6,15 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
-	"io/fs"
 	"log/slog"
-	"strconv"
-	"strings"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 )
 
 //go:embed *.sql
 var files embed.FS
-
-// LatestVersion 返回内嵌 migration 文件声明的最高版本。
-func LatestVersion() int64 {
-	entries, err := fs.ReadDir(files, ".")
-	if err != nil {
-		panic(fmt.Sprintf("read embedded migrations: %v", err))
-	}
-	var latest int64
-	for _, entry := range entries {
-		prefix, _, ok := strings.Cut(entry.Name(), "_")
-		if entry.IsDir() || !ok || !strings.HasSuffix(entry.Name(), ".sql") {
-			continue
-		}
-		version, err := strconv.ParseInt(prefix, 10, 64)
-		if err != nil {
-			panic(fmt.Sprintf("parse migration version %q: %v", entry.Name(), err))
-		}
-		latest = max(latest, version)
-	}
-	if latest == 0 {
-		panic("no embedded migrations")
-	}
-	return latest
-}
 
 // Up 连接数据库并执行所有待应用的向前 migration。
 func Up(ctx context.Context, databaseURL string, logger *slog.Logger) error {
@@ -55,7 +29,7 @@ func Up(ctx context.Context, databaseURL string, logger *slog.Logger) error {
 	}
 
 	// === 执行迁移 ===
-	provider, err := goose.NewProvider(goose.DialectPostgres, database, files, goose.WithSlog(logger))
+	provider, err := newProvider(database, logger)
 	if err != nil {
 		return fmt.Errorf("create migration provider: %w", err)
 	}
@@ -63,4 +37,38 @@ func Up(ctx context.Context, databaseURL string, logger *slog.Logger) error {
 		return fmt.Errorf("run migrations: %w", err)
 	}
 	return nil
+}
+
+// Checker 使用 Goose 自身的版本账本检查内嵌 migration 是否全部应用。
+type Checker struct {
+	provider *goose.Provider
+}
+
+// NewChecker 创建复用应用连接池的 migration 状态检查器。
+func NewChecker(pool *pgxpool.Pool, logger *slog.Logger) (*Checker, error) {
+	database := stdlib.OpenDBFromPool(pool)
+	provider, err := newProvider(database, logger)
+	if err != nil {
+		_ = database.Close()
+		return nil, fmt.Errorf("create migration status provider: %w", err)
+	}
+	return &Checker{provider: provider}, nil
+}
+
+// HasPending 返回内嵌 migration 中是否有尚未应用的版本。
+func (c *Checker) HasPending(ctx context.Context) (bool, error) {
+	pending, err := c.provider.HasPending(ctx)
+	if err != nil {
+		return false, fmt.Errorf("inspect migration status: %w", err)
+	}
+	return pending, nil
+}
+
+// Close 释放 Checker 使用的 database/sql 适配器，不关闭底层 pgxpool。
+func (c *Checker) Close() error {
+	return c.provider.Close()
+}
+
+func newProvider(database *sql.DB, logger *slog.Logger) (*goose.Provider, error) {
+	return goose.NewProvider(goose.DialectPostgres, database, files, goose.WithSlog(logger))
 }

@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Jason-skd/stu-trade/internal/db"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -45,20 +44,33 @@ func TestUpAppliesEmbeddedMigrations(t *testing.T) {
 
 	// === 执行并验证迁移 ===
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-	if err := Up(ctx, testURL, logger); err != nil {
-		t.Fatalf("Up() error = %v", err)
-	}
 	pool, err := pgxpool.New(ctx, testURL)
 	if err != nil {
 		t.Fatalf("create test pool: %v", err)
 	}
 	t.Cleanup(pool.Close)
-	version, err := db.New(pool).GetSchemaVersion(ctx)
+	checker, err := NewChecker(pool, logger)
 	if err != nil {
-		t.Fatalf("GetSchemaVersion() error = %v", err)
+		t.Fatalf("NewChecker() error = %v", err)
 	}
-	if version != LatestVersion() {
-		t.Fatalf("schema version = %d, want %d", version, LatestVersion())
+	t.Cleanup(func() { _ = checker.Close() })
+	pending, err := checker.HasPending(ctx)
+	if err != nil || !pending {
+		t.Fatalf("HasPending() before Up = (%t, %v), want (true, nil)", pending, err)
+	}
+	if err := Up(ctx, testURL, logger); err != nil {
+		t.Fatalf("Up() error = %v", err)
+	}
+	pending, err = checker.HasPending(ctx)
+	if err != nil || pending {
+		t.Fatalf("HasPending() after Up = (%t, %v), want (false, nil)", pending, err)
+	}
+	var appSchemaExists bool
+	if err := pool.QueryRow(ctx, "SELECT to_regclass('app_schema') IS NOT NULL").Scan(&appSchemaExists); err != nil {
+		t.Fatalf("inspect app_schema: %v", err)
+	}
+	if appSchemaExists {
+		t.Fatal("app_schema exists; Goose ledger must be the only migration state")
 	}
 	if err := Up(ctx, testURL, logger); err != nil {
 		t.Fatalf("second Up() error = %v", err)

@@ -61,7 +61,7 @@ type readinessResponse struct {
 }
 
 // NewRouter 创建健康检查和后端 API 路由。
-func NewRouter(readiness *Readiness) http.Handler {
+func NewRouter(readiness *Readiness, authServer *AuthServer) http.Handler {
 	router := gin.New()
 	router.Use(gin.Recovery())
 	_ = router.SetTrustedProxies(nil)
@@ -69,6 +69,17 @@ func NewRouter(readiness *Readiness) http.Handler {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 	router.GET("/ready", readiness.Check)
+	if authServer != nil {
+		gin.EnableJsonDecoderDisallowUnknownFields()
+		strict := NewStrictHandlerWithOptions(authServer, nil, StrictGinServerOptions{
+			RequestErrorHandlerFunc: func(c *gin.Context, _ error) {
+				p := problem(http.StatusBadRequest, ValidationFailed, "Validation failed", "request body is invalid")
+				c.Header("Content-Type", "application/problem+json")
+				c.JSON(http.StatusBadRequest, p)
+			},
+		})
+		RegisterHandlersWithOptions(router, strict, GinServerOptions{BaseURL: "/api/v1"})
+	}
 	router.NoRoute(func(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not_found"})
 	})

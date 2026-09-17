@@ -5,3 +5,9 @@ generate:
   gin-server: true
   strict-server: true
   models: true
+output-options:
+  include-operation-ids:
+    - signup
+    - login
+    - getCurrentSession
+    - logout

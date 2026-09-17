@@ -1,0 +1,109 @@
+name: Backend
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.0-alpine
+        env:
+          POSTGRES_DB: stutrade_test
+          POSTGRES_USER: stutrade
+          POSTGRES_PASSWORD: stutrade
+        options: >-
+          --health-cmd "pg_isready -U stutrade -d stutrade_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+        ports:
+          - 5432:5432
+    env:
+      STUTRADE_TEST_DATABASE_URL: postgres://stutrade:stutrade@127.0.0.1:5432/stutrade_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: sqlc-dev/setup-sqlc@v4
+        with:
+          sqlc-version: "1.31.1"
+      - name: Verify generated queries
+        run: |
+          sqlc generate
+          git diff --exit-code -- internal/db
+      - name: Verify formatting
+        run: test -z "$(gofmt -l $(find cmd internal migrations -name '*.go' -print))"
+      - name: Run static analysis
+        run: go vet ./...
+      - name: Run unit tests
+        run: go test -race ./...
+      - name: Run PostgreSQL integration tests
+        run: go test -tags=integration ./migrations
+
+  build:
+    needs: verify
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            artifact: stu-trade-linux-amd64
+          - goos: windows
+            artifact: stu-trade-windows-amd64.exe
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build backend
+        env:
+          CGO_ENABLED: "0"
+          GOARCH: amd64
+          GOOS: ${{ matrix.goos }}
+        run: >-
+          go build -trimpath
+          -ldflags "-s -w -X main.version=${GITHUB_REF_NAME} -X main.commit=${GITHUB_SHA}"
+          -o "${{ matrix.artifact }}"
+          ./cmd/stu-trade
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  image:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build production image
+        run: >-
+          docker build
+          --build-arg VERSION=${GITHUB_REF_NAME}
+          --build-arg COMMIT=${GITHUB_SHA}
+          --target production
+          --tag stu-trade:${GITHUB_SHA}
+          .
+
+  windows-smoke:
+    needs: verify
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build native backend
+        run: go build -trimpath -o stu-trade.exe ./cmd/stu-trade
+      - name: Run native backend smoke test
+        run: .\stu-trade.exe version

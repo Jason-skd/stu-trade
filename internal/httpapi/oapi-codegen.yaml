@@ -11,3 +11,11 @@ output-options:
     - login
     - getCurrentSession
     - logout
+    - listSellListings
+    - createSellListing
+    - getSellListing
+    - withdrawSellListing
+    - listBuyRequests
+    - createBuyRequest
+    - getBuyRequest
+    - withdrawBuyRequest

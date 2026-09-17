@@ -17,7 +17,7 @@ func TestAuthHTTPFlowAndCookiePolicy(t *testing.T) {
 	store := &authHTTPStore{}
 	now := time.Date(2026, 9, 17, 0, 0, 0, 0, time.UTC)
 	service := auth.NewService(store, func() time.Time { return now }, httpRandom)
-	router := NewRouter(NewReadiness(&stubDatabasePinger{}, &stubMigrationChecker{}, discardLogger()), NewAuthServer(service, discardLogger(), true))
+	router := NewRouter(NewReadiness(&stubDatabasePinger{}, &stubMigrationChecker{}, discardLogger()), NewAuthServer(service, discardLogger(), true), nil)
 
 	signup := authRequest(router, http.MethodPost, "/api/v1/signup", "{\"email\":\" USER@example.com \",\"nickname\":\" User \",\"password\":\"password123\"}", "")
 	if signup.Code != http.StatusCreated || !strings.Contains(signup.Body.String(), "\"email\":\"user@example.com\"") {
@@ -53,7 +53,7 @@ func TestAuthHTTPFlowAndCookiePolicy(t *testing.T) {
 
 func TestAuthHTTPProblems(t *testing.T) {
 	service := auth.NewService(&authHTTPStore{}, time.Now, httpRandom)
-	router := NewRouter(NewReadiness(&stubDatabasePinger{}, &stubMigrationChecker{}, discardLogger()), NewAuthServer(service, discardLogger(), false))
+	router := NewRouter(NewReadiness(&stubDatabasePinger{}, &stubMigrationChecker{}, discardLogger()), NewAuthServer(service, discardLogger(), false), nil)
 	invalid := authRequest(router, http.MethodPost, "/api/v1/signup", "{\"email\":\"bad\",\"nickname\":\"\",\"password\":\"short\"}", "")
 	if invalid.Code != http.StatusBadRequest || !strings.Contains(invalid.Body.String(), "\"code\":\"validation_failed\"") {
 		t.Fatalf("invalid = (%d, %s)", invalid.Code, invalid.Body.String())
@@ -78,7 +78,7 @@ func TestAuthHTTPLoginConflictAndInternalProblems(t *testing.T) {
 		t.Fatal(err)
 	}
 	store := &authHTTPStore{user: auth.StoredUser{User: auth.User{ID: uuid.New(), Email: "user@example.com", Nickname: "User"}, PasswordHash: hash}}
-	router := NewRouter(NewReadiness(&stubDatabasePinger{}, &stubMigrationChecker{}, discardLogger()), NewAuthServer(auth.NewService(store, time.Now, httpRandom), discardLogger(), false))
+	router := NewRouter(NewReadiness(&stubDatabasePinger{}, &stubMigrationChecker{}, discardLogger()), NewAuthServer(auth.NewService(store, time.Now, httpRandom), discardLogger(), false), nil)
 
 	login := authRequest(router, http.MethodPost, "/api/v1/login", "{\"email\":\"user@example.com\",\"password\":\"password123\"}", "")
 	if login.Code != http.StatusOK || len(login.Result().Cookies()) != 1 || login.Result().Cookies()[0].Secure {

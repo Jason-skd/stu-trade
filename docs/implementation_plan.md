@@ -4,14 +4,15 @@
 
 ## 当前基线
 
-当前仓库已经完成交付骨架：
+当前仓库已经完成交付骨架、账户会话和挂单宿主纵切：
 
 - 后端支持 `serve`、`migrate up` 和 `version`，并实现 `develop`、`native`、`production` 三个 profile。
 - PostgreSQL migration、sqlc、`/health`、`/ready`、Compose 和 native/production 构建入口已经建立。
-- web 已提供 OpenAPI、生成的 TypeScript 类型、MSW、应用路由与壳层。
-- engine 已提供 Amount、Listing、MatchRequest、价格兼容、状态转换和发布挂单用例。
+- 宿主已提供账户会话，以及买卖挂单的发布、浏览、详情、撤回、批量组装和 PostgreSQL Protocol 适配。
+- web 已提供 OpenAPI、生成的 TypeScript 类型、MSW、应用路由、壳层与认证页面。
+- engine 已提供 Amount、Listing、MatchRequest、价格兼容、状态转换和挂单发布、恢复、批量读取及 open 状态撤回用例。
 
-尚未完成的是业务宿主纵切、engine 成交用例、真实 API handler、完整前端页面和跨仓库端到端验证。
+尚未完成的是成交与撮合宿主纵切、engine 成交用例、挂单与交易前端页面和跨仓库端到端验证。
 
 ## 目标领域模型
 
@@ -62,7 +63,7 @@ MVP 只实现完成当前用例所需的实体：
 
 ## 数据与事务计划
 
-首批业务 migration 覆盖用户与会话、二手书资料、engine 通用 Listing、MatchRequest 和订单。主仓库继续拥有物理 migration 与查询文本；engine 拥有通用状态的命令、查询、恢复语义和逻辑持久化 Protocol。结构性规则优先由 PostgreSQL 的外键、唯一约束、检查约束和状态组合约束保证。
+当前业务 migration 已覆盖用户、会话、二手书资料和 engine 通用 Listing；后续纵切再加入 MatchRequest 和订单。主仓库继续拥有物理 migration 与查询文本；engine 拥有通用状态的命令、查询、恢复语义和逻辑持久化 Protocol。结构性规则优先由 PostgreSQL 的外键、唯一约束、检查约束和状态组合约束保证。
 
 宿主数据库适配器将负责：
 
@@ -81,11 +82,14 @@ MVP 只实现完成当前用例所需的实体：
 
 业务 API 使用 `/api/v1`，并由 `web/openapi/stu-trade.yaml` 生成前端传输类型和后端 Gin strict 接口。业务 handler 必须通过生成接口注册；不存在的路径返回后端 404，不回退到前端页面。
 
-计划实现的纵切包括：
+当前已经实现：
 
 - 本地账户、密码哈希和 `HttpOnly`、`SameSite` 会话 Cookie；
 - 出售与求购挂单的发布、浏览、详情和撤回；
 - 按 ISBN 或书名搜索，并按买卖方向与成色筛选；
+
+后续纵切包括：
+
 - 自动撮合列表、双方确认与拒绝；
 - 主动接单、主动购买、订单列表和履约确认；
 - 加载、空状态、校验、鉴权、资源失效和并发冲突反馈。
@@ -127,12 +131,11 @@ stu-trade/
 |-- internal/
 |   |-- app/             配置、依赖装配和进程生命周期
 |   |-- httpapi/         Gin、生成接口与传输映射
-|   |-- user/            用户与会话
+|   |-- auth/            用户与会话
 |   |-- listing/         二手书资料、市集、发布与业务对象组装
 |   |-- trade/           订单与履约
 |   |-- matching/        宿主规则与 engine 类型适配
-|   |-- db/              sqlc、engine Protocol 与事务适配
-|   `-- testutil/        真实测试资源辅助
+|   `-- db/              sqlc 生成的数据库绑定
 |-- migrations/
 |-- queries/
 |-- engine/

@@ -11,6 +11,7 @@ import (
 	"github.com/Jason-skd/stu-trade/internal/auth"
 	"github.com/Jason-skd/stu-trade/internal/db"
 	"github.com/Jason-skd/stu-trade/internal/httpapi"
+	"github.com/Jason-skd/stu-trade/internal/listing"
 	"github.com/Jason-skd/stu-trade/migrations"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -45,10 +46,12 @@ func Serve(ctx context.Context, cfg Config, logger *slog.Logger) error {
 	// === 装配协议入口 ===
 	queries := db.New(pool)
 	readiness := httpapi.NewReadiness(queries, migrationChecker, logger)
-	authServer := httpapi.NewAuthServer(auth.NewService(auth.NewPostgresStore(pool), time.Now, nil), logger, cfg.Profile == ProfileProduction)
+	authService := auth.NewService(auth.NewPostgresStore(pool), time.Now, nil)
+	authServer := httpapi.NewAuthServer(authService, logger, cfg.Profile == ProfileProduction)
+	listingServer := httpapi.NewListingServer(listing.NewService(listing.NewPostgresStore(pool), time.Now, nil), authService, logger)
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           httpapi.NewRouter(readiness, authServer),
+		Handler:           httpapi.NewRouter(readiness, authServer, listingServer),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

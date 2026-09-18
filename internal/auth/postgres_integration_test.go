@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -104,6 +105,46 @@ func TestPostgresStorePersistsAuthSafelyAndAtomically(t *testing.T) {
 	}
 	if _, err := store.FindSessionUser(ctx, digest, now); !errors.Is(err, ErrUnauthenticated) {
 		t.Fatalf("deleted session error = %v", err)
+	}
+
+	// === 验证认证存储约束 ===
+	constraintCases := []struct {
+		name  string
+		query string
+		args  []any
+	}{
+		{
+			name:  "non-canonical email",
+			query: `INSERT INTO users (id, email, nickname, password_hash, created_at) VALUES ($1, $2, 'User', 'hash', $3)`,
+			args:  []any{uuid.New(), " USER@example.com ", now},
+		},
+		{
+			name:  "empty nickname",
+			query: `INSERT INTO users (id, email, nickname, password_hash, created_at) VALUES ($1, $2, '  ', 'hash', $3)`,
+			args:  []any{uuid.New(), "empty-nickname@example.com", now},
+		},
+		{
+			name:  "oversized nickname",
+			query: `INSERT INTO users (id, email, nickname, password_hash, created_at) VALUES ($1, $2, $3, 'hash', $4)`,
+			args:  []any{uuid.New(), "long-nickname@example.com", strings.Repeat("n", 51), now},
+		},
+		{
+			name:  "empty password hash",
+			query: `INSERT INTO users (id, email, nickname, password_hash, created_at) VALUES ($1, $2, 'User', '', $3)`,
+			args:  []any{uuid.New(), "empty-hash@example.com", now},
+		},
+		{
+			name:  "non-positive session lifetime",
+			query: `INSERT INTO sessions (token_digest, user_id, expires_at, created_at) VALUES ($1, $2, $3, $3)`,
+			args:  []any{make([]byte, 32), session.User.ID, now},
+		},
+	}
+	for _, tt := range constraintCases {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := pool.Exec(ctx, tt.query, tt.args...); err == nil {
+				t.Fatal("constraint accepted invalid authentication data")
+			}
+		})
 	}
 }
 

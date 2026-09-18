@@ -217,6 +217,7 @@ func looksLikeISBN(value string) bool {
 // === 编解码分页游标 ===
 
 type cursorValue struct {
+	// === runtime 字段 ===
 	CreatedAt string `json:"createdAt"`
 	ID        string `json:"id"`
 }

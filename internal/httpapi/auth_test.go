@@ -13,6 +13,8 @@ import (
 	"github.com/google/uuid"
 )
 
+// === 验证认证 HTTP 契约 ===
+
 func TestAuthHTTPFlowAndCookiePolicy(t *testing.T) {
 	store := &authHTTPStore{}
 	now := time.Date(2026, 9, 17, 0, 0, 0, 0, time.UTC)
@@ -73,12 +75,13 @@ func TestAuthHTTPProblems(t *testing.T) {
 }
 
 func TestAuthHTTPLoginConflictAndInternalProblems(t *testing.T) {
-	hash, err := auth.HashPassword("password123", httpRandom)
+	store := &authHTTPStore{}
+	service := auth.NewService(store, time.Now, httpRandom)
+	_, err := service.Signup(context.Background(), "user@example.com", "User", "password123")
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := &authHTTPStore{user: auth.StoredUser{User: auth.User{ID: uuid.New(), Email: "user@example.com", Nickname: "User"}, PasswordHash: hash}}
-	router := NewRouter(NewReadiness(&stubDatabasePinger{}, &stubMigrationChecker{}, discardLogger()), NewAuthServer(auth.NewService(store, time.Now, httpRandom), discardLogger(), false), nil)
+	router := NewRouter(NewReadiness(&stubDatabasePinger{}, &stubMigrationChecker{}, discardLogger()), NewAuthServer(service, discardLogger(), false), nil)
 
 	login := authRequest(router, http.MethodPost, "/api/v1/login", "{\"email\":\"user@example.com\",\"password\":\"password123\"}", "")
 	if login.Code != http.StatusOK || len(login.Result().Cookies()) != 1 || login.Result().Cookies()[0].Secure {
@@ -102,6 +105,8 @@ func TestAuthHTTPLoginConflictAndInternalProblems(t *testing.T) {
 	}
 }
 
+// === 构造认证 HTTP 请求 ===
+
 func authRequest(handler http.Handler, method, target, body, cookie string) *httptest.ResponseRecorder {
 	request := httptest.NewRequest(method, target, strings.NewReader(body))
 	if body != "" {
@@ -121,6 +126,8 @@ func httpRandom(value []byte) (int, error) {
 	}
 	return len(value), nil
 }
+
+// === 提供认证存储替身 ===
 
 type authHTTPStore struct {
 	user          auth.StoredUser

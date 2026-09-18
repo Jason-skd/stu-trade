@@ -1,0 +1,27 @@
+name: Deliverable
+description: Define one leaf outcome that a pull request can close
+title: "[Deliverable] "
+labels:
+  - kind:deliverable
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: State the need, evidence, and relevant parent direction.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the outcome without incidental implementation detail.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: List observable outcomes a delivering pull request must prove.
+    validations:
+      required: true

@@ -1,0 +1,27 @@
+name: Direction
+description: Define a product direction that decomposes into leaf deliverables
+title: "[Direction] "
+labels:
+  - kind:direction
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: State the problem, evidence, and intended outcome.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the recommended direction and its boundaries.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: List observable direction-level outcomes and linked deliverables.
+    validations:
+      required: true

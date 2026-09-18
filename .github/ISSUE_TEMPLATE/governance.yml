@@ -1,0 +1,27 @@
+name: Governance
+description: Define a repository policy or maintenance governance outcome
+title: "[Governance] "
+labels:
+  - kind:governance
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: State the governance gap and current evidence.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the policy or repository maintenance outcome.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: List observable repository and workflow outcomes.
+    validations:
+      required: true

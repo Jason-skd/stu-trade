@@ -114,7 +114,10 @@ go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
 - Cloudflare Tunnel 已将生产 hostname 转发到树莓派的 `http://127.0.0.1:8081`；
 - GHCR 中两个 package 允许本仓库的 `GITHUB_TOKEN` 写入，并允许 production job 读取。
 
-这些是仓库之外的部署状态，不由 PR diff 证明。本流程合并时它们尚未配置；应在首次 tag 前逐项验证。
+这些是仓库之外的部署状态，不由 PR diff 证明。`v0.1.0` 的 Production Deploy
+已经使用受保护的 `v*` tag、专用 ARM64 Runner 和 production Environment 完成
+digest promotion、数据库备份与迁移、服务切换以及公网检查；后续发布仍须针对目标
+revision 重新验证同一组外部条件，不能用此前成功的部署替代当前证据。
 
 ## 发布操作
 

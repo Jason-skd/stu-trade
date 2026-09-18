@@ -1,0 +1,39 @@
+name: Emergency Handoff
+description: Record an urgent cross-repository dependency for its owning repository
+title: "[Emergency Handoff] "
+labels:
+  - flow:emergency
+body:
+  - type: dropdown
+    id: role
+    attributes:
+      label: Work item role
+      description: Apply the matching role label in addition to flow:emergency.
+      options:
+        - Direction
+        - Deliverable
+        - Governance
+        - Bug
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Name the owning repository, affected contract, and reproducible evidence.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the owner-side change or decision and compatibility impact.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: State the merged revision and consumer evidence required to unblock work.
+    validations:
+      required: true

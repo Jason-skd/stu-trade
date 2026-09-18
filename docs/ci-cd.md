@@ -104,6 +104,18 @@ go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
 
 同一个行为原则上只在最早能够证明其责任的阶段执行。后续阶段消费前一阶段按 commit SHA 和 digest 记录的结果，而不是再次构建“理论上相同”的产物。
 
+## Production Deploy 启用条件
+
+合并工作流会立即启用 PR Gate 和 Main Gate，但满足以下外部条件前，不得创建 production tag：
+
+- 树莓派已经注册 repository-scoped self-hosted Runner，并具有 `Linux`、`ARM64` 和 `stutrade-production` 标签；
+- GitHub 已建立 `production` Environment，并将 `STUTRADE_PUBLIC_URL` variable 设为实际 HTTPS 入口；
+- `/opt/stu-trade/.env` 已在服务器上以仅部署用户可读的权限保存 PostgreSQL 与 StuTrade 配置；
+- Cloudflare Tunnel 已将生产 hostname 转发到树莓派的 `http://127.0.0.1:8081`；
+- GHCR 中两个 package 允许本仓库的 `GITHUB_TOKEN` 写入，并允许 production job 读取。
+
+这些是仓库之外的部署状态，不由 PR diff 证明。本流程合并时它们尚未配置；应在首次 tag 前逐项验证。
+
 ## 发布操作
 
 先确认目标 main commit 的 Main Gate 成功，再创建并推送 tag：

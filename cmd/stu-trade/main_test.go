@@ -7,6 +7,8 @@ import (
 	"testing"
 )
 
+// === 验证命令行为 ===
+
 func TestRunVersion(t *testing.T) {
 	originalVersion, originalCommit := version, commit
 	version, commit = "v1.2.3", "abc123"

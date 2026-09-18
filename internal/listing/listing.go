@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 )
 
+// === 定义挂单模型 ===
+
 const defaultLimit = 20
 
 // ErrNotFound 表示请求的宿主挂单不存在或方向不匹配。
@@ -95,6 +97,7 @@ type FieldError struct{ Field, Code, Detail string }
 // ValidationError 汇总挂单请求中的字段错误。
 type ValidationError struct{ Fields []FieldError }
 
+// Error 返回稳定的挂单校验错误身份。
 func (e *ValidationError) Error() string { return "validation failed" }
 
 // CandidateFilter 是 PostgreSQL 候选 ID 查询所需的已校验条件。
@@ -125,6 +128,8 @@ type Transaction interface {
 	engine.ListingWithdrawer
 	CreateDetail(context.Context, Detail) error
 }
+
+// === 执行挂单用例 ===
 
 // Service 编排宿主资料和 engine Listing 的原子操作。
 type Service struct {
@@ -248,6 +253,8 @@ func (s *Service) Withdraw(ctx context.Context, id string, ownerID uuid.UUID, si
 	})
 }
 
+// === 组装挂单视图 ===
+
 func (s *Service) readViews(ctx context.Context, reader engine.ListingReader, ids []uuid.UUID) ([]View, error) {
 	textIDs := make([]string, len(ids))
 	for i := range ids {
@@ -307,6 +314,8 @@ func (s *Service) readViews(ctx context.Context, reader engine.ListingReader, id
 	}
 	return views, nil
 }
+
+// === 转换挂单错误 ===
 
 func validation(field, code, detail string) error {
 	return &ValidationError{Fields: []FieldError{{Field: field, Code: code, Detail: detail}}}

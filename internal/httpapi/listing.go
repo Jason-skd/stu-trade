@@ -11,6 +11,8 @@ import (
 	listingdomain "github.com/Jason-skd/stu-trade/internal/listing"
 )
 
+// === 处理挂单请求 ===
+
 // ListingServer 将买卖挂单用例映射到生成的 strict HTTP 契约。
 type ListingServer struct {
 	listings *listingdomain.Service
@@ -189,6 +191,8 @@ func (s *ListingServer) WithdrawBuyRequest(ctx context.Context, request Withdraw
 	return WithdrawBuyRequest204Response{}, nil
 }
 
+// === 识别当前用户 ===
+
 func (s *ListingServer) currentUser(ctx context.Context, required bool) (*auth.User, error) {
 	token := requestCookie(ctx)
 	if token == "" {
@@ -211,6 +215,8 @@ func (s *ListingServer) listUser(ctx context.Context, mine *Mine) (*auth.User, e
 	required := mine != nil && bool(*mine)
 	return s.currentUser(ctx, required)
 }
+
+// === 映射挂单输入 ===
 
 func sellListInput(params ListSellListingsParams, user *auth.User) listingdomain.ListInput {
 	return listInput(engine.SideSell, params.Q, params.Condition, params.Mine, params.Cursor, params.Limit, user)
@@ -248,6 +254,8 @@ func buyCreateInput(input CreateBuyRequestInput) listingdomain.CreateInput {
 	}
 }
 
+// === 映射挂单输出 ===
+
 func transportSellListing(view listingdomain.View, current *auth.User) SellListing {
 	return SellListing{
 		Id: view.Detail.ID.String(), Owner: transportPublicUser(view.Owner), Book: transportBook(view.Detail.Book),
@@ -284,6 +292,8 @@ func availableActions(view listingdomain.View, current *auth.User) []ListingActi
 	}
 	return []ListingAction{}
 }
+
+// === 映射鉴权错误 ===
 
 func createSellError(err error) CreateSellListingResponseObject {
 	if errors.Is(err, auth.ErrUnauthenticated) {
@@ -338,6 +348,8 @@ func (s *ListingServer) withdrawBuyFailure(err error) WithdrawBuyRequestResponse
 	}
 }
 
+// === 映射校验错误 ===
+
 func createSellValidation(fields []listingdomain.FieldError) CreateSellListingResponseObject {
 	return CreateSellListing400ApplicationProblemPlusJSONResponse{ValidationProblemApplicationProblemPlusJSONResponse(listingValidationProblem(fields))}
 }
@@ -367,6 +379,9 @@ func replacePrefix(value, old, replacement string) string {
 	}
 	return value
 }
+
+// === 创建挂单问题响应 ===
+
 func authenticationProblem() Problem {
 	return problem(http.StatusUnauthorized, Unauthenticated, "Authentication required", "a valid session is required")
 }

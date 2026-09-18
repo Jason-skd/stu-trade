@@ -11,6 +11,8 @@ import (
 
 const readinessTimeout = 2 * time.Second
 
+// === 检查服务就绪状态 ===
+
 type databasePinger interface {
 	Ping(context.Context) (int32, error)
 }
@@ -59,6 +61,8 @@ type readinessResponse struct {
 	Status string `json:"status"`
 	Reason string `json:"reason,omitempty"`
 }
+
+// === 注册 HTTP 路由 ===
 
 // Server 组合由各协议边界实现的 strict HTTP 操作。
 type Server struct {

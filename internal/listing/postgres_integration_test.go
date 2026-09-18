@@ -22,6 +22,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// === 验证挂单数据库语义 ===
+
 func TestPostgresListingLifecyclePaginationAndConstraints(t *testing.T) {
 	ctx, pool := listingTestDatabase(t)
 	owner := auth.User{ID: uuid.MustParse("11111111-1111-4111-8111-111111111111"), Email: "owner@example.com", Nickname: "Owner"}
@@ -179,11 +181,15 @@ func TestPostgresListingLifecyclePaginationAndConstraints(t *testing.T) {
 	}
 }
 
+// === 比较引擎持久化记录 ===
+
 func sameListingRecord(left, right engine.ListingRecord) bool {
 	return left.ID == right.ID && left.OwnerID == right.OwnerID && left.ResourceRef == right.ResourceRef &&
 		left.Side == right.Side && left.PriceCents == right.PriceCents && left.Status == right.Status &&
 		left.CreatedAt.Equal(right.CreatedAt) && left.UpdatedAt.Equal(right.UpdatedAt)
 }
+
+// === 创建挂单测试数据库 ===
 
 func listingTestDatabase(t *testing.T) (context.Context, *pgxpool.Pool) {
 	t.Helper()

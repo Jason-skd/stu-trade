@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+// === 验证部署配置 ===
+
 func TestLoadConfigProfiles(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -77,6 +79,8 @@ func TestLoadConfigUsesExplicitProfileBeforeEnvironment(t *testing.T) {
 		t.Fatalf("Profile = %q, want %q", cfg.Profile, ProfileNative)
 	}
 }
+
+// === 隔离配置环境 ===
 
 func clearConfigEnvironment(t *testing.T) {
 	t.Helper()

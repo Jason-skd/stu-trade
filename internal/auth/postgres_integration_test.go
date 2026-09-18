@@ -19,6 +19,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// === 验证认证数据库语义 ===
+
 func TestPostgresStorePersistsAuthSafelyAndAtomically(t *testing.T) {
 	databaseURL := os.Getenv("STUTRADE_TEST_DATABASE_URL")
 	if databaseURL == "" {
@@ -60,7 +62,7 @@ func TestPostgresStorePersistsAuthSafelyAndAtomically(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	digest, ok := TokenDigest(session.Token)
+	digest, ok := tokenDigest(session.Token)
 	if !ok {
 		t.Fatal("issued token is invalid")
 	}
@@ -104,6 +106,8 @@ func TestPostgresStorePersistsAuthSafelyAndAtomically(t *testing.T) {
 		t.Fatalf("deleted session error = %v", err)
 	}
 }
+
+// === 创建认证测试数据库 ===
 
 func integrationSuffix(t *testing.T) string {
 	t.Helper()

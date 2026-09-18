@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"net/http"
 	"sort"
@@ -16,10 +15,12 @@ import (
 	"github.com/google/uuid"
 )
 
+// === 验证挂单 HTTP 契约 ===
+
 func TestListingHTTPCreateBrowseAndWithdrawFlow(t *testing.T) {
 	owner := auth.User{ID: uuid.MustParse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"), Email: "owner@example.com", Nickname: "Owner"}
 	stranger := auth.User{ID: uuid.MustParse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"), Email: "stranger@example.com", Nickname: "Stranger"}
-	sessions := newListingSessionStore(owner, stranger)
+	sessions := newListingSessionStore(t, owner, stranger)
 	authService := auth.NewService(sessions, time.Now, httpRandom)
 	store := newHTTPListingStore(owner, stranger)
 	now := time.Date(2026, 9, 18, 11, 0, 0, 0, time.UTC)
@@ -84,7 +85,7 @@ func TestListingHTTPCreateBrowseAndWithdrawFlow(t *testing.T) {
 
 func TestListingHTTPBuyMappingAndProblems(t *testing.T) {
 	owner := auth.User{ID: uuid.New(), Email: "owner@example.com", Nickname: "Owner"}
-	sessions := newListingSessionStore(owner)
+	sessions := newListingSessionStore(t, owner)
 	authService := auth.NewService(sessions, time.Now, httpRandom)
 	store := newHTTPListingStore(owner)
 	now := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
@@ -117,27 +118,37 @@ func TestListingHTTPBuyMappingAndProblems(t *testing.T) {
 	}
 }
 
+// === 提供会话存储替身 ===
+
 type listingSessionStore struct {
-	users  map[string]auth.User
-	tokens map[uuid.UUID]string
+	users       map[string]auth.User
+	tokens      map[uuid.UUID]string
+	pendingUser auth.User
 }
 
-func newListingSessionStore(users ...auth.User) *listingSessionStore {
+func newListingSessionStore(t *testing.T, users ...auth.User) *listingSessionStore {
+	t.Helper()
 	store := &listingSessionStore{users: map[string]auth.User{}, tokens: map[uuid.UUID]string{}}
 	for i, user := range users {
-		raw := make([]byte, 32)
-		for j := range raw {
-			raw[j] = byte(i + j + 1)
+		store.pendingUser = user
+		random := func(value []byte) (int, error) {
+			for j := range value {
+				value[j] = byte(i + j + 1)
+			}
+			return len(value), nil
 		}
-		token := base64.RawURLEncoding.EncodeToString(raw)
-		digest, _ := auth.TokenDigest(token)
-		store.tokens[user.ID] = token
-		store.users[string(digest)] = user
+		session, err := auth.NewService(store, time.Now, random).Signup(context.Background(), user.Email, user.Nickname, "password123")
+		if err != nil {
+			t.Fatal(err)
+		}
+		store.tokens[user.ID] = session.Token
 	}
+	store.pendingUser = auth.User{}
 	return store
 }
-func (*listingSessionStore) CreateUserSession(context.Context, auth.StoredUser, []byte, time.Time, time.Time) error {
-	return errors.New("not implemented")
+func (s *listingSessionStore) CreateUserSession(_ context.Context, _ auth.StoredUser, digest []byte, _ time.Time, _ time.Time) error {
+	s.users[string(digest)] = s.pendingUser
+	return nil
 }
 func (*listingSessionStore) FindUserByEmail(context.Context, string) (auth.StoredUser, error) {
 	return auth.StoredUser{}, auth.ErrUnauthenticated
@@ -153,6 +164,8 @@ func (s *listingSessionStore) FindSessionUser(_ context.Context, digest []byte, 
 	return user, nil
 }
 func (*listingSessionStore) DeleteSession(context.Context, []byte) error { return nil }
+
+// === 提供挂单存储替身 ===
 
 type httpListingStore struct {
 	records map[string]engine.ListingRecord

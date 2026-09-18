@@ -14,6 +14,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// === 实现挂单存储 ===
+
 // PostgresStore 使用 sqlc 查询实现宿主存储和 engine 持久化协议。
 type PostgresStore struct {
 	pool    *pgxpool.Pool
@@ -105,6 +107,8 @@ func (s *PostgresStore) ReadUsers(ctx context.Context, ids []uuid.UUID) ([]Publi
 
 type postgresAdapter struct{ queries *db.Queries }
 
+// === 适配引擎协议 ===
+
 func (a *postgresAdapter) CreateDetail(ctx context.Context, detail Detail) error {
 	return a.queries.CreateBookListingDetail(ctx, db.CreateBookListingDetailParams{
 		ID: pgUUID(detail.ID), Isbn13: detail.Book.ISBN13, Title: detail.Book.Title,
@@ -166,6 +170,8 @@ func (a *postgresAdapter) UpdateListing(ctx context.Context, record engine.Listi
 	}
 	return nil
 }
+
+// === 转换引擎记录 ===
 
 func createListingParams(record engine.ListingRecord) (db.CreateListingParams, error) {
 	id, ownerID, resourceRef, err := recordUUIDs(record)
@@ -241,6 +247,8 @@ func parseStatus(value string) engine.ListingStatus {
 		return 0
 	}
 }
+
+// === 转换数据库类型 ===
 
 func parseUUIDStrings(ids []string) ([]pgtype.UUID, error) {
 	result := make([]pgtype.UUID, len(ids))

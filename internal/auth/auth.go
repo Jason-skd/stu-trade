@@ -17,8 +17,18 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-// SessionLifetime 是会话创建后的固定有效期。
-const SessionLifetime = 7 * 24 * time.Hour
+// === 定义认证契约 ===
+
+const (
+	// SessionLifetime 是会话创建后的固定有效期。
+	SessionLifetime    = 7 * 24 * time.Hour
+	passwordSaltLength = 16
+	passwordHashLength = 32
+	passwordTime       = uint32(1)
+	passwordMemory     = uint32(64 * 1024)
+	passwordThreads    = uint8(4)
+	passwordParameters = "m=65536,t=1,p=4"
+)
 
 var (
 	// ErrEmailTaken 表示规范化后的邮箱已注册。
@@ -26,7 +36,8 @@ var (
 	// ErrInvalidCredentials 统一表示邮箱不存在或密码错误。
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	// ErrUnauthenticated 表示会话缺失、无效或已过期。
-	ErrUnauthenticated = errors.New("unauthenticated")
+	ErrUnauthenticated     = errors.New("unauthenticated")
+	errInvalidPasswordHash = errors.New("invalid password hash")
 )
 
 // User 是认证域向调用方提供的当前用户身份。
@@ -71,16 +82,21 @@ type Service struct {
 	dummyPasswordHash string
 }
 
+// === 创建认证服务 ===
+
 // NewService 创建认证服务；nil 时间或随机源使用安全默认值。
 func NewService(store Store, now Clock, random Random) *Service {
+	// === 选择安全依赖 ===
 	if now == nil {
 		now = time.Now
 	}
 	if random == nil {
 		random = rand.Read
 	}
+
+	// === 准备恒定凭据路径 ===
 	dummySalt := []byte("stu-trade-dummy!")
-	dummyHash := argon2.IDKey([]byte("not-a-user-password"), dummySalt, 1, 64*1024, 4, 32)
+	dummyHash := argon2.IDKey([]byte("not-a-user-password"), dummySalt, passwordTime, passwordMemory, passwordThreads, passwordHashLength)
 	return &Service{
 		store:             store,
 		now:               now,
@@ -89,11 +105,11 @@ func NewService(store Store, now Clock, random Random) *Service {
 	}
 }
 
-// NormalizeEmail 去除首尾空白并统一为小写。
-func NormalizeEmail(value string) string { return strings.ToLower(strings.TrimSpace(value)) }
+// === 校验账户输入 ===
 
-// NormalizeNickname 去除昵称首尾空白。
-func NormalizeNickname(value string) string { return strings.TrimSpace(value) }
+func normalizeEmail(value string) string { return strings.ToLower(strings.TrimSpace(value)) }
+
+func normalizeNickname(value string) string { return strings.TrimSpace(value) }
 
 // FieldError 描述一个请求字段的稳定校验失败。
 type FieldError struct{ Field, Code, Detail string }
@@ -101,11 +117,11 @@ type FieldError struct{ Field, Code, Detail string }
 // ValidationError 汇总请求中全部字段错误。
 type ValidationError struct{ Fields []FieldError }
 
+// Error 返回稳定的认证校验错误身份。
 func (e *ValidationError) Error() string { return "validation failed" }
 
-// Validate 规范化并校验注册或登录输入。
-func Validate(email, nickname, password string, includeNickname bool) (string, string, error) {
-	email, nickname = NormalizeEmail(email), NormalizeNickname(nickname)
+func validate(email, nickname, password string, includeNickname bool) (string, string, error) {
+	email, nickname = normalizeEmail(email), normalizeNickname(nickname)
 	var fields []FieldError
 	if len(email) == 0 || len(email) > 254 || !validEmail(email) {
 		fields = append(fields, FieldError{"email", "invalid", "must be a valid email address of at most 254 characters"})
@@ -127,13 +143,15 @@ func validEmail(value string) bool {
 	return err == nil && address.Address == value && strings.Contains(value, "@")
 }
 
+// === 执行会话用例 ===
+
 // Signup 在一个存储事务中创建用户和首个会话。
 func (s *Service) Signup(ctx context.Context, email, nickname, password string) (Session, error) {
-	email, nickname, err := Validate(email, nickname, password, true)
+	email, nickname, err := validate(email, nickname, password, true)
 	if err != nil {
 		return Session{}, err
 	}
-	hash, err := HashPassword(password, s.random)
+	hash, err := hashPassword(password, s.random)
 	if err != nil {
 		return Session{}, fmt.Errorf("hash password: %w", err)
 	}
@@ -151,19 +169,19 @@ func (s *Service) Signup(ctx context.Context, email, nickname, password string) 
 
 // Login 校验凭据并创建固定期限会话。
 func (s *Service) Login(ctx context.Context, email, password string) (Session, error) {
-	email, _, err := Validate(email, "", password, false)
+	email, _, err := validate(email, "", password, false)
 	if err != nil {
 		return Session{}, err
 	}
 	user, err := s.store.FindUserByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, ErrUnauthenticated) {
-			_, _ = VerifyPassword(password, s.dummyPasswordHash)
+			_, _ = verifyPassword(password, s.dummyPasswordHash)
 			return Session{}, ErrInvalidCredentials
 		}
 		return Session{}, err
 	}
-	ok, err := VerifyPassword(password, user.PasswordHash)
+	ok, err := verifyPassword(password, user.PasswordHash)
 	if err != nil {
 		return Session{}, fmt.Errorf("verify password: %w", err)
 	}
@@ -183,7 +201,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (Session, e
 
 // Current 返回有效令牌对应的当前用户。
 func (s *Service) Current(ctx context.Context, token string) (User, error) {
-	digest, ok := TokenDigest(token)
+	digest, ok := tokenDigest(token)
 	if !ok {
 		return User{}, ErrUnauthenticated
 	}
@@ -192,12 +210,15 @@ func (s *Service) Current(ctx context.Context, token string) (User, error) {
 
 // Logout 幂等删除可识别令牌对应的会话。
 func (s *Service) Logout(ctx context.Context, token string) error {
-	digest, ok := TokenDigest(token)
+	digest, ok := tokenDigest(token)
 	if !ok {
 		return nil
 	}
 	return s.store.DeleteSession(ctx, digest)
 }
+
+// === 生成会话令牌 ===
+
 func (s *Service) newToken() (string, []byte, error) {
 	b := make([]byte, 32)
 	if n, err := s.random(b); err != nil || n != len(b) {
@@ -207,12 +228,11 @@ func (s *Service) newToken() (string, []byte, error) {
 		return "", nil, fmt.Errorf("generate session token: %w", err)
 	}
 	token := base64.RawURLEncoding.EncodeToString(b)
-	digest, _ := TokenDigest(token)
+	digest, _ := tokenDigest(token)
 	return token, digest, nil
 }
 
-// TokenDigest 校验令牌编码并返回用于持久化的 SHA-256 摘要。
-func TokenDigest(token string) ([]byte, bool) {
+func tokenDigest(token string) ([]byte, bool) {
 	raw, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil || len(raw) != 32 {
 		return nil, false
@@ -221,37 +241,40 @@ func TokenDigest(token string) ([]byte, bool) {
 	return sum[:], true
 }
 
-// HashPassword 使用随机盐生成 Argon2id PHC 字符串。
-func HashPassword(password string, random Random) (string, error) {
-	salt := make([]byte, 16)
+// === 处理密码凭据 ===
+
+func hashPassword(password string, random Random) (string, error) {
+	salt := make([]byte, passwordSaltLength)
 	if n, err := random(salt); err != nil || n != len(salt) {
 		if err == nil {
 			err = errors.New("short random read")
 		}
 		return "", err
 	}
-	hash := argon2.IDKey([]byte(password), salt, 1, 64*1024, 4, 32)
+	hash := argon2.IDKey([]byte(password), salt, passwordTime, passwordMemory, passwordThreads, passwordHashLength)
 	return encodePasswordHash(salt, hash), nil
 }
 
 func encodePasswordHash(salt, hash []byte) string {
-	return fmt.Sprintf("$argon2id$v=19$m=65536,t=1,p=4$%s$%s", base64.RawStdEncoding.EncodeToString(salt), base64.RawStdEncoding.EncodeToString(hash))
+	return fmt.Sprintf("$argon2id$v=19$%s$%s$%s", passwordParameters, base64.RawStdEncoding.EncodeToString(salt), base64.RawStdEncoding.EncodeToString(hash))
 }
 
-// VerifyPassword 校验密码与受支持的 Argon2id PHC 字符串。
-func VerifyPassword(password, encoded string) (bool, error) {
+func verifyPassword(password, encoded string) (bool, error) {
 	parts := strings.Split(encoded, "$")
-	if len(parts) != 6 || parts[1] != "argon2id" || parts[2] != "v=19" || parts[3] != "m=65536,t=1,p=4" {
-		return false, errors.New("invalid password hash")
+	if len(parts) != 6 || parts[0] != "" || parts[1] != "argon2id" || parts[2] != "v=19" || parts[3] != passwordParameters {
+		return false, errInvalidPasswordHash
+	}
+	if len(parts[4]) != base64.RawStdEncoding.EncodedLen(passwordSaltLength) || len(parts[5]) != base64.RawStdEncoding.EncodedLen(passwordHashLength) {
+		return false, errInvalidPasswordHash
 	}
 	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
-	if err != nil {
-		return false, err
+	if err != nil || len(salt) != passwordSaltLength {
+		return false, errInvalidPasswordHash
 	}
 	want, err := base64.RawStdEncoding.DecodeString(parts[5])
-	if err != nil {
-		return false, err
+	if err != nil || len(want) != passwordHashLength {
+		return false, errInvalidPasswordHash
 	}
-	got := argon2.IDKey([]byte(password), salt, 1, 64*1024, 4, uint32(len(want)))
+	got := argon2.IDKey([]byte(password), salt, passwordTime, passwordMemory, passwordThreads, passwordHashLength)
 	return subtle.ConstantTimeCompare(got, want) == 1, nil
 }

@@ -20,6 +20,8 @@ var (
 	commit  = "unknown"
 )
 
+// === 启动命令进程 ===
+
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -78,6 +80,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return usageError()
 	}
 }
+
+// === 解析命令参数 ===
 
 func splitCommand(args []string) (string, []string) {
 	if len(args) == 0 || args[0] == "--" || args[0] == "-" || args[0] == "-h" || args[0] == "--help" || args[0] == "--profile" || strings.HasPrefix(args[0], "--profile=") {

@@ -8,7 +8,7 @@ RUN go mod download
 COPY . .
 CMD ["go", "run", "./cmd/stu-trade", "serve", "--profile=develop"]
 
-FROM golang:1.27.1-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.27.1-alpine AS build
 ARG VERSION=dev
 ARG COMMIT=unknown
 ARG TARGETOS

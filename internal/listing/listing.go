@@ -40,12 +40,14 @@ func (c Condition) valid() bool {
 
 // Book 是挂单创建时保存的书籍资料快照。
 type Book struct {
+	// === persistent 字段 ===
 	ISBN13, Title, Author string
 	CoverImageURL         *string
 }
 
 // Detail 是与 engine Listing 共享标识的宿主资料。
 type Detail struct {
+	// === persistent 字段 ===
 	ID        uuid.UUID
 	Book      Book
 	Condition Condition
@@ -54,12 +56,14 @@ type Detail struct {
 
 // PublicUser 是挂单响应所需的最小公开用户资料。
 type PublicUser struct {
+	// === schema 字段 ===
 	ID       uuid.UUID
 	Nickname string
 }
 
 // View 组合经 engine 恢复的通用状态与宿主资料。
 type View struct {
+	// === runtime 字段 ===
 	Listing *engine.Listing
 	Detail  Detail
 	Owner   PublicUser
@@ -67,6 +71,7 @@ type View struct {
 
 // CreateInput 是发布买卖挂单的宿主输入。
 type CreateInput struct {
+	// === runtime 字段 ===
 	Book       Book
 	Condition  Condition
 	Note       *string
@@ -77,6 +82,7 @@ type CreateInput struct {
 
 // ListInput 是公开市场或本人挂单列表的筛选输入。
 type ListInput struct {
+	// === runtime 字段 ===
 	Side      engine.Side
 	Query     *string
 	Condition *Condition
@@ -87,21 +93,29 @@ type ListInput struct {
 
 // Page 是稳定 keyset 分页结果。
 type Page struct {
+	// === runtime 字段 ===
 	Items      []View
 	NextCursor *string
 }
 
 // FieldError 描述一个挂单请求字段的稳定校验失败。
-type FieldError struct{ Field, Code, Detail string }
+type FieldError struct {
+	// === runtime 字段 ===
+	Field, Code, Detail string
+}
 
 // ValidationError 汇总挂单请求中的字段错误。
-type ValidationError struct{ Fields []FieldError }
+type ValidationError struct {
+	// === runtime 字段 ===
+	Fields []FieldError
+}
 
 // Error 返回稳定的挂单校验错误身份。
 func (e *ValidationError) Error() string { return "validation failed" }
 
 // CandidateFilter 是 PostgreSQL 候选 ID 查询所需的已校验条件。
 type CandidateFilter struct {
+	// === runtime 字段 ===
 	Side            engine.Side
 	OwnerID         *uuid.UUID
 	Condition       *Condition

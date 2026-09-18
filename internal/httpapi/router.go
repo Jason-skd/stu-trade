@@ -58,6 +58,7 @@ func (r *Readiness) Check(c *gin.Context) {
 }
 
 type readinessResponse struct {
+	// === runtime 字段 ===
 	Status string `json:"status"`
 	Reason string `json:"reason,omitempty"`
 }

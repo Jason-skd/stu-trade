@@ -1,0 +1,27 @@
+name: Bug
+description: Report incorrect current behavior with reproducible evidence
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: State current behavior, expected behavior, and current evidence.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the recommended repair boundary.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: Include the regression scenario and observable corrected behavior.
+    validations:
+      required: true

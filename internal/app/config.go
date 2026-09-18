@@ -26,6 +26,7 @@ const (
 
 // Config 包含宿主启动所需的已校验配置。
 type Config struct {
+	// === runtime 字段 ===
 	Profile       Profile
 	HTTPAddr      string
 	DatabaseURL   string
@@ -37,6 +38,7 @@ type Config struct {
 
 // LoadOptions 包含优先于环境变量的进程参数。
 type LoadOptions struct {
+	// === runtime 字段 ===
 	Profile string
 	Version string
 	Commit  string
@@ -81,6 +83,7 @@ func LoadConfig(options LoadOptions) (Config, error) {
 }
 
 type profileDefaults struct {
+	// === runtime 字段 ===
 	httpAddr    string
 	databaseURL string
 }

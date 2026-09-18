@@ -91,6 +91,8 @@ go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
 
 `make release-smoke` 要求 `BACKEND_IMAGE` 和 `WEB_IMAGE`，并运行 `deploy/smoke.sh`。脚本创建隔离的 Compose project，执行 migration，启动精确镜像，检查服务后删除测试容器和 volume。
 
+生产 Compose 同时把 PostgreSQL 18.0 Alpine 固定到多架构 manifest digest。Main Gate 烟测和 Production Deploy 因而使用父仓库 revision 记录的同一数据库镜像；更新 PostgreSQL 必须通过新的父仓库提交和 Main Gate 认证，不能在发布阶段跟随可变 tag 漂移。
+
 `make deploy-production` 同样要求两个 digest image reference，并运行 `deploy/deploy.sh`。脚本使用部署锁防止并发发布，拉取镜像、备份数据库、执行 migration、切换服务并检查本机入口。
 
 ## 新步骤应放在哪一层
@@ -114,7 +116,10 @@ go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
 - Cloudflare Tunnel 已将生产 hostname 转发到树莓派的 `http://127.0.0.1:8081`；
 - GHCR 中两个 package 允许本仓库的 `GITHUB_TOKEN` 写入，并允许 production job 读取。
 
-这些是仓库之外的部署状态，不由 PR diff 证明。本流程合并时它们尚未配置；应在首次 tag 前逐项验证。
+这些是仓库之外的部署状态，不由 PR diff 证明。`v0.1.0` 的 Production Deploy
+已经使用受保护的 `v*` tag、专用 ARM64 Runner 和 production Environment 完成
+digest promotion、数据库备份与迁移、服务切换以及公网检查；后续发布仍须针对目标
+revision 重新验证同一组外部条件，不能用此前成功的部署替代当前证据。
 
 ## 发布操作
 
@@ -126,3 +131,11 @@ git push origin v1.2.3
 ```
 
 即使 tag 在 Main Gate 尚未结束时推送，Production Deploy 也只会等待对应 SHA 的结果，不会抢先部署。
+
+## 回滚与发布物保留
+
+仓库维护者负责从已认证的 `deployment-manifest` 选择回滚版本并核对 source SHA 与两个镜像 digest；production Environment 的发布操作员负责批准和执行生产变更。两项责任可以由同一人承担，但回滚不得从可变 tag、Actions cache 或重新构建的镜像推断发布物。
+
+回滚前先判断目标版本与当前数据库 schema 是否向后兼容。兼容时，使用该版本 manifest 记录的精确 backend/web digest 重新运行 `make deploy-production`，随后检查本机 `/ready`、首页以及配置的公网 `/ready`。不兼容时，不得直接启动旧应用；发布操作员应进入维护窗口，使用目标发布前的受控数据库备份恢复 schema 与数据，再部署对应 digest 并完成同样的本机和公网检查。失败的回滚保持维护状态，并保留恢复所用备份与日志供后续处置。
+
+`deployment-manifest` 在 Actions 中保留 90 天。GHCR 不得删除仍被受支持版本、90 天内的 manifest 或生产回滚记录引用的 digest；只有仓库维护者确认相应版本不再受支持且没有保留中的回滚记录后，才能清理这些镜像。生产数据库备份的保存周期和异地副本由 production 发布操作员按服务器运维策略管理，仓库自动化不擅自删除备份。

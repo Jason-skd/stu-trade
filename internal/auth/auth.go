@@ -42,18 +42,21 @@ var (
 
 // User 是认证域向调用方提供的当前用户身份。
 type User struct {
+	// === persistent 字段 ===
 	ID              uuid.UUID
 	Email, Nickname string
 }
 
 // StoredUser 包含仅供认证存储使用的密码哈希。
 type StoredUser struct {
+	// === persistent 字段 ===
 	User
 	PasswordHash string
 }
 
 // Session 是新建会话及其一次性明文令牌。
 type Session struct {
+	// === runtime 字段 ===
 	User      User
 	Token     string
 	ExpiresAt time.Time
@@ -112,10 +115,16 @@ func normalizeEmail(value string) string { return strings.ToLower(strings.TrimSp
 func normalizeNickname(value string) string { return strings.TrimSpace(value) }
 
 // FieldError 描述一个请求字段的稳定校验失败。
-type FieldError struct{ Field, Code, Detail string }
+type FieldError struct {
+	// === runtime 字段 ===
+	Field, Code, Detail string
+}
 
 // ValidationError 汇总请求中全部字段错误。
-type ValidationError struct{ Fields []FieldError }
+type ValidationError struct {
+	// === runtime 字段 ===
+	Fields []FieldError
+}
 
 // Error 返回稳定的认证校验错误身份。
 func (e *ValidationError) Error() string { return "validation failed" }

@@ -179,6 +179,24 @@ func TestPostgresListingLifecyclePaginationAndConstraints(t *testing.T) {
 	if _, err := pool.Exec(ctx, `INSERT INTO book_listing_details (id, isbn_13, title, author, condition) VALUES ($1, '978030640615X', 'Bad ISBN', 'Author', 'good')`, uuid.New()); err == nil {
 		t.Fatal("ISBN storage constraint accepted invalid characters")
 	}
+	if _, err := pool.Exec(ctx, `INSERT INTO book_listing_details (id, isbn_13, title, author, condition) VALUES ($1, '9780306406158', 'Bad checksum', 'Author', 'good')`, uuid.New()); err == nil {
+		t.Fatal("ISBN storage constraint accepted an invalid checksum")
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO book_listing_details (id, isbn_13, title, author, condition) VALUES ($1, '1234567890128', 'Bad prefix', 'Author', 'good')`, uuid.New()); err == nil {
+		t.Fatal("ISBN storage constraint accepted an invalid prefix")
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO book_listing_details (id, isbn_13, title, author, condition) VALUES ($1, '9780306406157', ' Padded title ', 'Author', 'good')`, uuid.New()); err == nil {
+		t.Fatal("title storage constraint accepted a non-canonical value")
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO book_listing_details (id, isbn_13, title, author, condition) VALUES ($1, '9780306406157', 'Title', ' Padded author ', 'good')`, uuid.New()); err == nil {
+		t.Fatal("author storage constraint accepted a non-canonical value")
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO book_listing_details (id, isbn_13, title, author, cover_image_url, condition) VALUES ($1, '9780306406157', 'Title', 'Author', '/cover.jpg', 'good')`, uuid.New()); err == nil {
+		t.Fatal("cover storage constraint accepted a relative URI")
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO book_listing_details (id, isbn_13, title, author, condition, note) VALUES ($1, '9780306406157', 'Title', 'Author', 'good', '  ')`, uuid.New()); err == nil {
+		t.Fatal("note storage constraint accepted a blank value")
+	}
 }
 
 // === 比较引擎持久化记录 ===

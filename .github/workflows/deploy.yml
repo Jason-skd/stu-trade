@@ -1,0 +1,138 @@
+name: Production Deploy
+
+on:
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: stutrade-production
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: read
+  packages: write
+
+env:
+  BACKEND_REPOSITORY: ghcr.io/jason-skd/stu-trade-backend
+  WEB_REPOSITORY: ghcr.io/jason-skd/stu-trade-web
+
+jobs:
+  resolve-main-certificate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    outputs:
+      backend-image: ${{ steps.manifest.outputs.backend }}
+      web-image: ${{ steps.manifest.outputs.web }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate release tag and main ancestry
+        run: |
+          if ! printf '%s\n' "${GITHUB_REF_NAME}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "release tag must use v1.2.3 or v1.2.3-prerelease form" >&2
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "${GITHUB_SHA}" origin/main
+      - name: Wait for the matching Main Gate
+        id: main-run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          deadline=$((SECONDS + 1200))
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            runs=$(gh run list --workflow main.yml --commit "${GITHUB_SHA}" --limit 10 \
+              --json databaseId,status,conclusion)
+            successful_run=$(printf '%s' "$runs" | jq -r \
+              '[.[] | select(.status == "completed" and .conclusion == "success")][0].databaseId // empty')
+            if [ -n "$successful_run" ]; then
+              echo "run-id=${successful_run}" >>"${GITHUB_OUTPUT}"
+              exit 0
+            fi
+            failed_run=$(printf '%s' "$runs" | jq -r \
+              '[.[] | select(.status == "completed" and .conclusion != "success")][0].databaseId // empty')
+            active_run=$(printf '%s' "$runs" | jq -r \
+              '[.[] | select(.status != "completed")][0].databaseId // empty')
+            if [ -n "$failed_run" ] && [ -z "$active_run" ]; then
+              echo "Main Gate failed for ${GITHUB_SHA}" >&2
+              exit 1
+            fi
+            sleep 15
+          done
+          echo "timed out waiting for Main Gate for ${GITHUB_SHA}" >&2
+          exit 1
+      - name: Download deployment certificate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAIN_RUN_ID: ${{ steps.main-run.outputs.run-id }}
+        run: gh run download "${MAIN_RUN_ID}" --name deployment-manifest --dir deployment-manifest
+      - name: Validate deployment certificate
+        id: manifest
+        run: |
+          . deployment-manifest/images.env
+          test "${SOURCE_SHA}" = "${GITHUB_SHA}"
+          case "${BACKEND_IMAGE}" in
+            "${BACKEND_REPOSITORY}@sha256:"*) ;;
+            *) echo "invalid backend image certificate" >&2; exit 1 ;;
+          esac
+          case "${WEB_IMAGE}" in
+            "${WEB_REPOSITORY}@sha256:"*) ;;
+            *) echo "invalid web image certificate" >&2; exit 1 ;;
+          esac
+          echo "backend=${BACKEND_IMAGE}" >>"${GITHUB_OUTPUT}"
+          echo "web=${WEB_IMAGE}" >>"${GITHUB_OUTPUT}"
+
+  promote-version-tags:
+    needs: resolve-main-certificate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Point version tags at certified digests
+        env:
+          BACKEND_IMAGE: ${{ needs.resolve-main-certificate.outputs.backend-image }}
+          WEB_IMAGE: ${{ needs.resolve-main-certificate.outputs.web-image }}
+        run: |
+          docker buildx imagetools create --tag "${BACKEND_REPOSITORY}:${GITHUB_REF_NAME}" "${BACKEND_IMAGE}"
+          docker buildx imagetools create --tag "${WEB_REPOSITORY}:${GITHUB_REF_NAME}" "${WEB_IMAGE}"
+
+  deploy-production:
+    needs: [resolve-main-certificate, promote-version-tags]
+    runs-on: [self-hosted, Linux, ARM64, stutrade-production]
+    timeout-minutes: 15
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install deployment definition
+        run: |
+          sudo install -d -o "$(id -un)" -g "$(id -gn)" -m 0750 /opt/stu-trade /opt/stu-trade/backups
+          sudo install -o "$(id -un)" -g "$(id -gn)" -m 0644 deploy/compose.production.yaml /opt/stu-trade/compose.production.yaml
+          sudo install -o "$(id -un)" -g "$(id -gn)" -m 0750 deploy/deploy.sh /opt/stu-trade/deploy.sh
+      - name: Deploy certified images
+        env:
+          BACKEND_IMAGE: ${{ needs.resolve-main-certificate.outputs.backend-image }}
+          WEB_IMAGE: ${{ needs.resolve-main-certificate.outputs.web-image }}
+        run: make deploy-production
+      - name: Verify public endpoint
+        if: vars.STUTRADE_PUBLIC_URL != ''
+        env:
+          STUTRADE_PUBLIC_URL: ${{ vars.STUTRADE_PUBLIC_URL }}
+        run: curl --fail --silent --show-error --retry 10 --retry-delay 3 --retry-all-errors "${STUTRADE_PUBLIC_URL}/ready"

@@ -1,5 +1,6 @@
 VERSION ?= dev
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || printf unknown)
+ACTIONLINT_VERSION := v1.7.7
 LDFLAGS := -s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)
 
 BIN_DIR := bin
@@ -11,7 +12,7 @@ WINDOWS_BACKEND := $(BIN_DIR)/stu-trade-windows-amd64.exe
 .PHONY: build build-image build-linux build-windows check deploy-production \
 	develop engine-check format-check generate generate-check migrate-up native \
 	pr-check production release-smoke run submodules submodules-check test \
-	test-integration vet web-build web-check
+	test-integration vet web-build web-check workflow-check
 
 build:
 	go build -trimpath -ldflags "$(LDFLAGS)" -o $(BACKEND) ./cmd/stu-trade
@@ -67,7 +68,10 @@ web-build: submodules-check
 
 check: generate-check format-check vet test engine-check web-check
 
-pr-check: check test-integration
+workflow-check:
+	GOFLAGS=-mod=readonly go run github.com/rhysd/actionlint/cmd/actionlint@$(ACTIONLINT_VERSION)
+
+pr-check: check test-integration workflow-check
 
 release-smoke:
 	@test -n "$(BACKEND_IMAGE)" || (echo "BACKEND_IMAGE is required"; exit 2)

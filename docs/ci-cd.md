@@ -13,6 +13,7 @@ PR Gate 回答“这组变更是否符合仓库契约并允许合并”。它在
 - 宿主、engine 和 web 的单元及行为测试通过；
 - web 的 OpenAPI、lint、测试和生产构建通过；
 - 真实 PostgreSQL migration 与适配集成测试通过。
+- GitHub Actions workflow 通过锁定版本的 actionlint 检查。
 
 新提交会取消同一 PR 尚未完成的旧运行。PR 的 head 或 GitHub 临时 merge commit 通常不是最终 main commit，因此这一阶段不发布生产镜像，也不作为生产部署凭证。
 
@@ -85,6 +86,7 @@ go test -race -timeout 10m ./...
 cd engine && go vet ./... && go test -race -timeout 10m ./...
 cd web && bun install --frozen-lockfile && bun run check
 go test -tags=integration ... ./internal/auth ./internal/listing ./migrations
+go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
 ```
 
 `make release-smoke` 要求 `BACKEND_IMAGE` 和 `WEB_IMAGE`，并运行 `deploy/smoke.sh`。脚本创建隔离的 Compose project，执行 migration，启动精确镜像，检查服务后删除测试容器和 volume。

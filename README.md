@@ -19,12 +19,12 @@ web client --HTTP--> Gin: /api/v1 --> business host --> engine
                                              +--> host repositories --------------+--> PostgreSQL
 ```
 
-| 组件       | 当前责任                                                             |
-| ---------- | -------------------------------------------------------------------- |
-| 业务宿主   | 用户、二手书与订单，业务规则、完整对象组装、HTTP 和运行装配          |
-| 撮合引擎   | 通用 Listing、MatchRequest、状态机及逻辑存取入口，不直连数据库        |
-| 前端       | 页面、交互、OpenAPI、生成的传输类型和独立静态产物                    |
-| PostgreSQL | engine 状态与宿主扩展的物理存储、约束、事务与并发正确性              |
+| 组件       | 当前责任                                                       |
+| ---------- | -------------------------------------------------------------- |
+| 业务宿主   | 用户、二手书与订单，业务规则、完整对象组装、HTTP 和运行装配    |
+| 撮合引擎   | 通用 Listing、MatchRequest、状态机及逻辑存取入口，不直连数据库 |
+| 前端       | 页面、交互、OpenAPI、生成的传输类型和独立静态产物              |
+| PostgreSQL | engine 状态与宿主扩展的物理存储、约束、事务与并发正确性        |
 
 核心技术栈为 Go 1.27、Gin、pgx/v5、sqlc、goose、PostgreSQL、React 19、TypeScript 6、Vite 8 和 Bun 1.4。
 
@@ -84,11 +84,10 @@ STUTRADE_TEST_DATABASE_URL='postgres://...' make test-integration
 
 仓库治理：
 
-- [仓库协作规范](docs/governance/repository-workflow.md)
-- [责任与权威来源](docs/governance/ownership.md)
-- [实现规范](docs/governance/implementation.md)
-- [接口规范](docs/governance/interfaces.md)
-- [验证规范](docs/governance/verification.md)
+- [工作流治理](docs/governance/workflow.md)
+- [工程治理](docs/governance/engineering.md)
+- [验证治理](docs/governance/verification.md)
+- [仓库治理补充](docs/governance/repository.md)
 
 课程要求译文：
 

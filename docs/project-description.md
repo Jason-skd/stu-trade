@@ -45,7 +45,7 @@ web client --HTTP--> Gin: /api/v1 --> business host --> engine
 
 engine 不直接连接数据库，也不认识 ISBN、图书或用户表。宿主提供的数据库适配器负责实现 engine Protocol，但宿主业务代码不得绕过 engine 直接恢复或修改 Listing、MatchRequest。宿主通过 Listing ID、资源引用和数据库外键关联自己的二手书资料；一个完整的“二手书挂单”由通用 Listing 与宿主资料在应用层组装而成。
 
-具体权威来源和跨仓库变更责任见[责任与权威来源](governance/ownership.md)。
+具体权威来源和跨仓库变更责任见[仓库治理补充](governance/repository.md)。
 
 ## 部署配置
 

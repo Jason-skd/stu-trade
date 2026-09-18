@@ -1,6 +1,6 @@
 # StuTrade 实施方案
 
-本文只记录尚未完成的目标、实施顺序和验收条件。当前已经具备的入口以代码、测试和根 README 为准；产品定义见[项目说明](project-description.md)，责任分配见[责任与权威来源](governance/ownership.md)。
+本文只记录尚未完成的目标、实施顺序和验收条件。当前已经具备的入口以代码、测试和根 README 为准；产品定义见[项目说明](project-description.md)，责任分配见[仓库治理补充](governance/repository.md)。
 
 ## 当前基线
 

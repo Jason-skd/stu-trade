@@ -9,10 +9,10 @@
 - 后端支持 `serve`、`migrate up` 和 `version`，并实现 `develop`、`native`、`production` 三个 profile。
 - PostgreSQL migration、sqlc、`/health`、`/ready`、Compose 和 native/production 构建入口已经建立。
 - 宿主已提供账户会话，以及买卖挂单的发布、浏览、详情、撤回、批量组装和 PostgreSQL Protocol 适配。
-- web 已提供 OpenAPI、生成的 TypeScript 类型、MSW、应用路由、壳层与认证页面。
+- web 已提供 OpenAPI、生成的 TypeScript 类型、MSW、应用路由、壳层、认证页面，以及市集浏览和挂单详情页面。
 - engine 已提供 Amount、Listing、MatchRequest、价格兼容、状态转换和挂单发布、恢复、批量读取及 open 状态撤回用例。
 
-尚未完成的是成交与撮合宿主纵切、engine 成交用例、挂单与交易前端页面和跨仓库端到端验证。
+尚未完成的是成交与撮合宿主纵切、engine 成交用例、发布与本人挂单等写操作页面、交易前端页面和跨仓库端到端验证。
 
 ## 目标领域模型
 
@@ -87,11 +87,13 @@ MVP 只实现完成当前用例所需的实体：
 - 本地账户、密码哈希和 `HttpOnly`、`SameSite` 会话 Cookie；
 - 出售与求购挂单的发布、浏览、详情和撤回；
 - 按 ISBN 或书名搜索，并按买卖方向与成色筛选；
+- 前端匿名市集浏览、搜索、成色筛选、cursor 翻页和挂单详情；
 
 后续纵切包括：
 
 - 自动撮合列表、双方确认与拒绝；
 - 主动接单、主动购买、订单列表和履约确认；
+- 发布挂单、查看本人挂单和前端撤回交互；
 - 加载、空状态、校验、鉴权、资源失效和并发冲突反馈。
 
 MVP 不要求书籍封面。前端只展示和提交状态，不复制宿主拥有的 ISBN、自买、有效性、幂等和并发规则。

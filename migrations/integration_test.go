@@ -15,6 +15,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// === 验证迁移数据库语义 ===
+
 func TestUpAppliesEmbeddedMigrations(t *testing.T) {
 	databaseURL := os.Getenv("STUTRADE_TEST_DATABASE_URL")
 	if databaseURL == "" {
@@ -76,6 +78,8 @@ func TestUpAppliesEmbeddedMigrations(t *testing.T) {
 		t.Fatalf("second Up() error = %v", err)
 	}
 }
+
+// === 构造迁移测试环境 ===
 
 func randomSuffix(t *testing.T) string {
 	t.Helper()

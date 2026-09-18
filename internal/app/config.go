@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+// === 定义部署配置 ===
+
 // Profile 标识依赖装配和运行参数集合。
 type Profile string
 
@@ -39,6 +41,8 @@ type LoadOptions struct {
 	Version string
 	Commit  string
 }
+
+// === 加载部署配置 ===
 
 // LoadConfig 从显式参数、环境变量和 profile 默认值加载配置。
 func LoadConfig(options LoadOptions) (Config, error) {
@@ -80,6 +84,8 @@ type profileDefaults struct {
 	httpAddr    string
 	databaseURL string
 }
+
+// === 解析配置字段 ===
 
 func defaultsFor(profile Profile) profileDefaults {
 	if profile == ProfileNative {

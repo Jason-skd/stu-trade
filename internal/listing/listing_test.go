@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 )
 
+// === 验证挂单领域行为 ===
+
 func TestNormalizeISBN(t *testing.T) {
 	tests := []struct {
 		name, input, want string
@@ -26,12 +28,12 @@ func TestNormalizeISBN(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NormalizeISBN(tt.input)
+			got, err := normalizeISBN(tt.input)
 			if tt.valid && (err != nil || got != tt.want) {
-				t.Fatalf("NormalizeISBN() = (%q, %v), want (%q, nil)", got, err, tt.want)
+				t.Fatalf("normalizeISBN() = (%q, %v), want (%q, nil)", got, err, tt.want)
 			}
 			if !tt.valid && err == nil {
-				t.Fatalf("NormalizeISBN() = %q, want error", got)
+				t.Fatalf("normalizeISBN() = %q, want error", got)
 			}
 		})
 	}
@@ -233,6 +235,8 @@ func TestWithdrawEnforcesSideOwnershipStateAndIdempotence(t *testing.T) {
 		t.Fatal("reserved withdrawal changed state")
 	}
 }
+
+// === 提供挂单存储替身 ===
 
 type fakeStore struct {
 	records          map[string]engine.ListingRecord

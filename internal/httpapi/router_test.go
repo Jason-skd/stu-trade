@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+// === 验证运维 HTTP 契约 ===
+
 func TestHealthDoesNotCheckDependencies(t *testing.T) {
 	database := &stubDatabasePinger{err: errors.New("database unavailable")}
 	migrations := &stubMigrationChecker{err: errors.New("schema unavailable")}
@@ -70,6 +72,8 @@ func TestUnknownRouteReturnsBackendNotFound(t *testing.T) {
 		t.Fatalf("response = (%d, %q)", response.Code, response.Body.String())
 	}
 }
+
+// === 提供就绪检查替身 ===
 
 type stubDatabasePinger struct {
 	err                 error

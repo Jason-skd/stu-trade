@@ -18,6 +18,8 @@ import (
 
 const startupTimeout = 5 * time.Second
 
+// === 运行宿主进程 ===
+
 // Serve 装配依赖并运行 HTTP 服务，直到上下文取消或服务失败。
 func Serve(ctx context.Context, cfg Config, logger *slog.Logger) error {
 	startupCtx, cancelStartup := context.WithTimeout(ctx, startupTimeout)

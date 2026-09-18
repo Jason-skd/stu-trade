@@ -14,8 +14,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// NormalizeISBN 去除空格和连字符，校验 ISBN-10/13，并统一返回 ISBN-13。
-func NormalizeISBN(value string) (string, error) {
+// === 规范化书籍标识 ===
+
+func normalizeISBN(value string) (string, error) {
 	compact := strings.Map(func(r rune) rune {
 		if unicode.IsSpace(r) || r == '-' {
 			return -1
@@ -89,9 +90,11 @@ func isbn13From10(value string) string {
 	return prefix + string(rune('0'+(10-sum%10)%10))
 }
 
+// === 校验挂单创建输入 ===
+
 func validateCreate(input CreateInput) (CreateInput, error) {
 	var fields []FieldError
-	isbn, err := NormalizeISBN(input.Book.ISBN13)
+	isbn, err := normalizeISBN(input.Book.ISBN13)
 	if err != nil {
 		fields = append(fields, FieldError{"book.isbn", "invalid", "must be a valid ISBN-10 or ISBN-13"})
 	}
@@ -139,6 +142,8 @@ func validateCreate(input CreateInput) (CreateInput, error) {
 	return input, nil
 }
 
+// === 校验挂单查询输入 ===
+
 func validateList(input ListInput) (CandidateFilter, int, error) {
 	filter := CandidateFilter{Side: input.Side, OwnerID: input.OwnerID, PageSize: defaultLimit + 1}
 	var fields []FieldError
@@ -156,7 +161,7 @@ func validateList(input ListInput) (CandidateFilter, int, error) {
 		query := strings.TrimSpace(*input.Query)
 		if query == "" {
 			fields = append(fields, FieldError{"q", "required", "must not be empty"})
-		} else if isbn, err := NormalizeISBN(query); err == nil {
+		} else if isbn, err := normalizeISBN(query); err == nil {
 			filter.ISBN13 = &isbn
 		} else if looksLikeISBN(query) {
 			fields = append(fields, FieldError{"q", "invalid", "must contain a valid ISBN when searching by ISBN"})
@@ -209,6 +214,8 @@ func looksLikeISBN(value string) bool {
 	return true
 }
 
+// === 编解码分页游标 ===
+
 type cursorValue struct {
 	CreatedAt string `json:"createdAt"`
 	ID        string `json:"id"`
@@ -243,6 +250,8 @@ func decodeCursor(value string) (time.Time, uuid.UUID, error) {
 	}
 	return createdAt.UTC(), id, nil
 }
+
+// === 转义标题查询 ===
 
 func escapeLike(value string) string {
 	value = strings.ReplaceAll(value, `\`, `\\`)

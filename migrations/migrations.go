@@ -16,6 +16,8 @@ import (
 //go:embed *.sql
 var files embed.FS
 
+// === 执行数据库迁移 ===
+
 // Up 连接数据库并执行所有待应用的向前 migration。
 func Up(ctx context.Context, databaseURL string, logger *slog.Logger) error {
 	// === 打开数据库 ===
@@ -68,6 +70,8 @@ func (c *Checker) HasPending(ctx context.Context) (bool, error) {
 func (c *Checker) Close() error {
 	return c.provider.Close()
 }
+
+// === 创建迁移提供器 ===
 
 func newProvider(database *sql.DB, logger *slog.Logger) (*goose.Provider, error) {
 	return goose.NewProvider(goose.DialectPostgres, database, files, goose.WithSlog(logger))

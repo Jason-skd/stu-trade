@@ -14,6 +14,8 @@ import (
 
 const sessionCookieName = "stu_trade_session"
 
+// === 处理认证请求 ===
+
 // AuthServer 将认证用例映射到生成的 strict HTTP 契约。
 type AuthServer struct {
 	service      *auth.Service
@@ -105,6 +107,8 @@ func (s *AuthServer) Logout(ctx context.Context, _ LogoutRequestObject) (LogoutR
 	return Logout204Response{Headers: Logout204ResponseHeaders{SetCookie: &cookie}}, nil
 }
 
+// === 映射会话传输 ===
+
 func (s *AuthServer) sessionCookie(value string, maxAge int) string {
 	c := &http.Cookie{Name: sessionCookieName, Value: value, Path: "/api/v1", MaxAge: maxAge, HttpOnly: true, Secure: s.secureCookie, SameSite: http.SameSiteLaxMode}
 	if maxAge < 0 {
@@ -126,6 +130,9 @@ func requestCookie(ctx context.Context) string {
 func transportSession(user auth.User) Session {
 	return Session{User: OrderUser{Id: user.ID.String(), Email: openapi_types.Email(user.Email), Nickname: user.Nickname}}
 }
+
+// === 映射认证错误 ===
+
 func problem(status int, code ProblemCode, title, detail string) Problem {
 	return Problem{Type: "about:blank", Title: title, Status: status, Code: code, Detail: detail}
 }

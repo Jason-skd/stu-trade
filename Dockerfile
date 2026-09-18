@@ -11,6 +11,8 @@ CMD ["go", "run", "./cmd/stu-trade", "serve", "--profile=develop"]
 FROM golang:1.27.1-alpine AS build
 ARG VERSION=dev
 ARG COMMIT=unknown
+ARG TARGETOS
+ARG TARGETARCH
 WORKDIR /src
 COPY go.mod go.sum ./
 COPY engine/go.mod ./engine/go.mod
@@ -19,7 +21,7 @@ COPY cmd ./cmd
 COPY engine ./engine
 COPY internal ./internal
 COPY migrations ./migrations
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build \
     -trimpath \
     -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" \
     -o /out/stu-trade ./cmd/stu-trade

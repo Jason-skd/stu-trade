@@ -1,0 +1,40 @@
+name: stu-trade
+
+services:
+  postgres:
+    image: postgres:18.0-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    image: ${BACKEND_IMAGE}
+    restart: unless-stopped
+    environment:
+      STUTRADE_PROFILE: production
+      STUTRADE_DATABASE_URL: ${STUTRADE_DATABASE_URL}
+      STUTRADE_HTTP_ADDR: :8080
+      STUTRADE_LOG_LEVEL: ${STUTRADE_LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+  web:
+    image: ${WEB_IMAGE}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8081:80"
+    depends_on:
+      backend:
+        condition: service_started
+
+volumes:
+  postgres-data:

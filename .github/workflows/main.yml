@@ -1,0 +1,120 @@
+name: Main Gate
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: main-${{ github.sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  BACKEND_REPOSITORY: ghcr.io/jason-skd/stu-trade-backend
+  WEB_REPOSITORY: ghcr.io/jason-skd/stu-trade-web
+
+jobs:
+  build-images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      backend-image: ${{ steps.references.outputs.backend }}
+      web-image: ${{ steps.references.outputs.web }}
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            stu-trade
+            stu-trade-engine
+            stu-trade-web
+          permission-contents: read
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        id: backend
+        with:
+          context: .
+          file: Dockerfile
+          target: production
+          platforms: linux/arm64
+          push: true
+          build-args: |
+            VERSION=${{ github.sha }}
+            COMMIT=${{ github.sha }}
+          cache-from: type=gha,scope=backend-arm64
+          cache-to: type=gha,mode=max,scope=backend-arm64
+          tags: ${{ env.BACKEND_REPOSITORY }}:${{ github.sha }}
+      - uses: docker/build-push-action@v6
+        id: web
+        with:
+          context: .
+          file: Dockerfile.web
+          target: production
+          platforms: linux/arm64
+          push: true
+          cache-from: type=gha,scope=web-arm64
+          cache-to: type=gha,mode=max,scope=web-arm64
+          tags: ${{ env.WEB_REPOSITORY }}:${{ github.sha }}
+      - name: Resolve immutable image references
+        id: references
+        env:
+          BACKEND_DIGEST: ${{ steps.backend.outputs.digest }}
+          WEB_DIGEST: ${{ steps.web.outputs.digest }}
+        run: |
+          echo "backend=${BACKEND_REPOSITORY}@${BACKEND_DIGEST}" >>"${GITHUB_OUTPUT}"
+          echo "web=${WEB_REPOSITORY}@${WEB_DIGEST}" >>"${GITHUB_OUTPUT}"
+
+  release-smoke:
+    needs: build-images
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Smoke-test exact release images
+        env:
+          BACKEND_IMAGE: ${{ needs.build-images.outputs.backend-image }}
+          WEB_IMAGE: ${{ needs.build-images.outputs.web-image }}
+        run: make release-smoke
+      - name: Write deployment certificate
+        env:
+          BACKEND_IMAGE: ${{ needs.build-images.outputs.backend-image }}
+          WEB_IMAGE: ${{ needs.build-images.outputs.web-image }}
+        run: |
+          install -d deployment-manifest
+          printf 'SOURCE_SHA=%s\nBACKEND_IMAGE=%s\nWEB_IMAGE=%s\n' \
+            "${GITHUB_SHA}" "${BACKEND_IMAGE}" "${WEB_IMAGE}" \
+            >deployment-manifest/images.env
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deployment-manifest
+          path: deployment-manifest/images.env
+          retention-days: 90

@@ -5,7 +5,7 @@
 bin
 dist
 docs
-web
+**/node_modules
 .env
 *.md
 coverage.out

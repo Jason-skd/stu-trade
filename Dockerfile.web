@@ -1,0 +1,12 @@
+# syntax=docker/dockerfile:1.7
+
+FROM oven/bun:1.4.2-alpine AS build
+WORKDIR /src
+COPY web/package.json web/bun.lock ./
+RUN bun install --frozen-lockfile
+COPY web/ .
+RUN bun run build
+
+FROM caddy:2.10.2-alpine AS production
+COPY deploy/Caddyfile /etc/caddy/Caddyfile
+COPY --from=build /src/dist /srv

@@ -8,9 +8,10 @@ BACKEND := $(BIN_DIR)/stu-trade
 LINUX_BACKEND := $(BIN_DIR)/stu-trade-linux-amd64
 WINDOWS_BACKEND := $(BIN_DIR)/stu-trade-windows-amd64.exe
 
-.PHONY: build build-image build-linux build-windows check develop engine-check \
-	format-check generate generate-check migrate-up native production run \
-	submodules submodules-check test test-integration vet web-build web-check
+.PHONY: build build-image build-linux build-windows check deploy-production \
+	develop engine-check format-check generate generate-check migrate-up native \
+	pr-check production release-smoke run submodules submodules-check test \
+	test-integration vet web-build web-check
 
 build:
 	go build -trimpath -ldflags "$(LDFLAGS)" -o $(BACKEND) ./cmd/stu-trade
@@ -65,6 +66,19 @@ web-build: submodules-check
 	cd web && bun run build
 
 check: generate-check format-check vet test engine-check web-check
+
+pr-check: check test-integration
+
+release-smoke:
+	@test -n "$(BACKEND_IMAGE)" || (echo "BACKEND_IMAGE is required"; exit 2)
+	@test -n "$(WEB_IMAGE)" || (echo "WEB_IMAGE is required"; exit 2)
+	BACKEND_IMAGE="$(BACKEND_IMAGE)" WEB_IMAGE="$(WEB_IMAGE)" ./deploy/smoke.sh
+
+deploy-production:
+	@test -n "$(BACKEND_IMAGE)" || (echo "BACKEND_IMAGE is required"; exit 2)
+	@test -n "$(WEB_IMAGE)" || (echo "WEB_IMAGE is required"; exit 2)
+	STUTRADE_DEPLOY_DIR="$(or $(STUTRADE_DEPLOY_DIR),/opt/stu-trade)" \
+		./deploy/deploy.sh "$(BACKEND_IMAGE)" "$(WEB_IMAGE)"
 
 run:
 	@if [ -f .env ]; then set -a; . ./.env; set +a; fi; \

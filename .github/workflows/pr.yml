@@ -1,0 +1,64 @@
+name: PR Gate
+
+on:
+  pull_request:
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GOFLAGS: -mod=readonly
+
+jobs:
+  governance-and-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:18.0-alpine
+        env:
+          POSTGRES_DB: stutrade_test
+          POSTGRES_USER: stutrade
+          POSTGRES_PASSWORD: stutrade
+        options: >-
+          --health-cmd "pg_isready -U stutrade -d stutrade_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+        ports:
+          - 5432:5432
+    env:
+      STUTRADE_TEST_DATABASE_URL: postgres://stutrade:stutrade@127.0.0.1:5432/stutrade_test?sslmode=disable
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            stu-trade
+            stu-trade-engine
+            stu-trade-web
+          permission-contents: read
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: sqlc-dev/setup-sqlc@v4
+        with:
+          sqlc-version: "1.31.1"
+      - name: Verify governance and quality
+        run: make pr-check

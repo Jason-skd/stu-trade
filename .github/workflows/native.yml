@@ -1,0 +1,59 @@
+name: Native Delivery
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version recorded in the native executable
+        required: true
+        default: dev
+
+permissions:
+  contents: read
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            stu-trade
+            stu-trade-engine
+            stu-trade-web
+          permission-contents: read
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: Assemble native delivery
+        run: make native VERSION="${{ inputs.version }}" COMMIT="${GITHUB_SHA}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-delivery
+          path: dist/native
+
+  windows-smoke:
+    needs: assemble
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: native-delivery
+          path: dist/native
+      - name: Run native backend smoke test
+        run: .\dist\native\backend\stu-trade.exe version

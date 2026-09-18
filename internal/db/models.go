@@ -8,6 +8,27 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type BookListingDetail struct {
+	ID            pgtype.UUID
+	Isbn13        string
+	Title         string
+	Author        string
+	CoverImageUrl pgtype.Text
+	Condition     string
+	Note          pgtype.Text
+}
+
+type Listing struct {
+	ID          pgtype.UUID
+	OwnerID     pgtype.UUID
+	ResourceRef pgtype.UUID
+	Side        string
+	PriceCents  int64
+	Status      string
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+}
+
 type User struct {
 	ID           pgtype.UUID
 	Email        string

@@ -60,8 +60,14 @@ type readinessResponse struct {
 	Reason string `json:"reason,omitempty"`
 }
 
+// Server 组合由各协议边界实现的 strict HTTP 操作。
+type Server struct {
+	*AuthServer
+	*ListingServer
+}
+
 // NewRouter 创建健康检查和后端 API 路由。
-func NewRouter(readiness *Readiness, authServer *AuthServer) http.Handler {
+func NewRouter(readiness *Readiness, authServer *AuthServer, listingServer *ListingServer) http.Handler {
 	router := gin.New()
 	router.Use(gin.Recovery())
 	_ = router.SetTrustedProxies(nil)
@@ -69,9 +75,9 @@ func NewRouter(readiness *Readiness, authServer *AuthServer) http.Handler {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 	router.GET("/ready", readiness.Check)
-	if authServer != nil {
+	if authServer != nil || listingServer != nil {
 		gin.EnableJsonDecoderDisallowUnknownFields()
-		strict := NewStrictHandlerWithOptions(authServer, nil, StrictGinServerOptions{
+		strict := NewStrictHandlerWithOptions(&Server{AuthServer: authServer, ListingServer: listingServer}, nil, StrictGinServerOptions{
 			RequestErrorHandlerFunc: func(c *gin.Context, _ error) {
 				p := problem(http.StatusBadRequest, ValidationFailed, "Validation failed", "request body is invalid")
 				c.Header("Content-Type", "application/problem+json")

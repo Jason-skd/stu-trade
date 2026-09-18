@@ -3,6 +3,7 @@ module github.com/Jason-skd/stu-trade
 go 1.27.1
 
 require (
+	github.com/Jason-skd/stu-trade-engine v0.0.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.8.0
@@ -11,7 +12,10 @@ require (
 	golang.org/x/crypto v0.48.0
 )
 
+replace github.com/Jason-skd/stu-trade-engine => ./engine
+
 require (
+	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.15.0 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect

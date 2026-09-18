@@ -7,7 +7,7 @@ StuTrade 是面向校园交易场景的撮合平台。当前版本以二手书�
 - 本仓库负责项目文档、业务宿主、HTTP 入口、业务特有数据、PostgreSQL 适配和交付装配。
 - [`engine/`](engine/) 是独立 Go module submodule，负责通用挂单与撮合状态机。
 - [`web/`](web/) 是独立 React + TypeScript submodule，负责 OpenAPI 结构契约、页面和前端交付。
-- 当前代码已经具备部署配置、migration、健康检查、生成的 HTTP 服务端契约、引擎核心模型和前端应用骨架；完整交易业务 handler 尚未全部实现。生成的契约类型不代表对应业务能力已经可用。
+- 当前代码已经具备账户会话、买卖挂单宿主 API、PostgreSQL 持久化、部署配置、健康检查、引擎核心模型和前端认证入口；主动成交、自动撮合、履约和挂单 Web 页面尚未实现。生成的契约类型不代表对应业务能力已经可用。
 - 当前产品定义见[项目说明](docs/project-description.md)，后续工作见[实施方案](docs/implementation_plan.md)，跨仓库责任见[责任与权威来源](docs/governance/ownership.md)。
 
 ## 架构概览

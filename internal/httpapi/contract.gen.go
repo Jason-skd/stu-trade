@@ -9,10 +9,99 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for Condition.
+const (
+	Fair    Condition = "fair"
+	Good    Condition = "good"
+	LikeNew Condition = "like_new"
+	New     Condition = "new"
+	Poor    Condition = "poor"
+)
+
+// Valid indicates whether the value is a known member of the Condition enum.
+func (e Condition) Valid() bool {
+	switch e {
+	case Fair:
+		return true
+	case Good:
+		return true
+	case LikeNew:
+		return true
+	case New:
+		return true
+	case Poor:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Currency.
+const (
+	CNY Currency = "CNY"
+)
+
+// Valid indicates whether the value is a known member of the Currency enum.
+func (e Currency) Valid() bool {
+	switch e {
+	case CNY:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListingAction.
+const (
+	Accept   ListingAction = "accept"
+	Purchase ListingAction = "purchase"
+	Withdraw ListingAction = "withdraw"
+)
+
+// Valid indicates whether the value is a known member of the ListingAction enum.
+func (e ListingAction) Valid() bool {
+	switch e {
+	case Accept:
+		return true
+	case Purchase:
+		return true
+	case Withdraw:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListingStatus.
+const (
+	Matched   ListingStatus = "matched"
+	Open      ListingStatus = "open"
+	Reserved  ListingStatus = "reserved"
+	Withdrawn ListingStatus = "withdrawn"
+)
+
+// Valid indicates whether the value is a known member of the ListingStatus enum.
+func (e ListingStatus) Valid() bool {
+	switch e {
+	case Matched:
+		return true
+	case Open:
+		return true
+	case Reserved:
+		return true
+	case Withdrawn:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for ProblemCode.
 const (
@@ -59,6 +148,58 @@ func (e ProblemCode) Valid() bool {
 	}
 }
 
+// Book defines model for Book.
+type Book struct {
+	Author        string  `json:"author"`
+	CoverImageUrl *string `json:"coverImageUrl,omitempty"`
+	Isbn          string  `json:"isbn"`
+	Title         string  `json:"title"`
+}
+
+// BuyRequest defines model for BuyRequest.
+type BuyRequest struct {
+	AvailableActions []ListingAction `json:"availableActions"`
+	Book             Book            `json:"book"`
+	Condition        Condition       `json:"condition"`
+	CreatedAt        time.Time       `json:"createdAt"`
+
+	// Id Opaque identifier.
+	Id           Id            `json:"id"`
+	MaximumPrice Money         `json:"maximumPrice"`
+	Note         *string       `json:"note,omitempty"`
+	Owner        PublicUser    `json:"owner"`
+	Status       ListingStatus `json:"status"`
+	UpdatedAt    time.Time     `json:"updatedAt"`
+}
+
+// BuyRequestPage defines model for BuyRequestPage.
+type BuyRequestPage struct {
+	Items      []BuyRequest `json:"items"`
+	NextCursor *string      `json:"nextCursor"`
+}
+
+// Condition defines model for Condition.
+type Condition string
+
+// CreateBuyRequestInput defines model for CreateBuyRequestInput.
+type CreateBuyRequestInput struct {
+	Book         Book      `json:"book"`
+	Condition    Condition `json:"condition"`
+	MaximumPrice Money     `json:"maximumPrice"`
+	Note         *string   `json:"note,omitempty"`
+}
+
+// CreateSellListingInput defines model for CreateSellListingInput.
+type CreateSellListingInput struct {
+	Book      Book      `json:"book"`
+	Condition Condition `json:"condition"`
+	Note      *string   `json:"note,omitempty"`
+	Price     Money     `json:"price"`
+}
+
+// Currency defines model for Currency.
+type Currency string
+
 // FieldProblem defines model for FieldProblem.
 type FieldProblem struct {
 	Code   string `json:"code"`
@@ -69,10 +210,23 @@ type FieldProblem struct {
 // Id Opaque identifier.
 type Id = string
 
+// ListingAction defines model for ListingAction.
+type ListingAction string
+
+// ListingStatus defines model for ListingStatus.
+type ListingStatus string
+
 // LoginInput defines model for LoginInput.
 type LoginInput struct {
 	Email    openapi_types.Email `json:"email"`
 	Password *string             `json:"password,omitempty"`
+}
+
+// Money defines model for Money.
+type Money struct {
+	// Amount Amount in the smallest currency unit.
+	Amount   int      `json:"amount"`
+	Currency Currency `json:"currency"`
 }
 
 // OrderUser defines model for OrderUser.
@@ -97,6 +251,35 @@ type Problem struct {
 // ProblemCode defines model for Problem.Code.
 type ProblemCode string
 
+// PublicUser defines model for PublicUser.
+type PublicUser struct {
+	// Id Opaque identifier.
+	Id       Id     `json:"id"`
+	Nickname string `json:"nickname"`
+}
+
+// SellListing defines model for SellListing.
+type SellListing struct {
+	AvailableActions []ListingAction `json:"availableActions"`
+	Book             Book            `json:"book"`
+	Condition        Condition       `json:"condition"`
+	CreatedAt        time.Time       `json:"createdAt"`
+
+	// Id Opaque identifier.
+	Id        Id            `json:"id"`
+	Note      *string       `json:"note,omitempty"`
+	Owner     PublicUser    `json:"owner"`
+	Price     Money         `json:"price"`
+	Status    ListingStatus `json:"status"`
+	UpdatedAt time.Time     `json:"updatedAt"`
+}
+
+// SellListingPage defines model for SellListingPage.
+type SellListingPage struct {
+	Items      []SellListing `json:"items"`
+	NextCursor *string       `json:"nextCursor"`
+}
+
 // Session defines model for Session.
 type Session struct {
 	User OrderUser `json:"user"`
@@ -112,11 +295,23 @@ type SignupInput struct {
 // BuyRequestId Opaque identifier.
 type BuyRequestId = Id
 
+// Cursor defines model for Cursor.
+type Cursor = string
+
+// Limit defines model for Limit.
+type Limit = int
+
 // MatchId Opaque identifier.
 type MatchId = Id
 
+// Mine defines model for Mine.
+type Mine = bool
+
 // OrderId Opaque identifier.
 type OrderId = Id
+
+// Search defines model for Search.
+type Search = string
 
 // SellListingId Opaque identifier.
 type SellListingId = Id
@@ -130,23 +325,84 @@ type ForbiddenProblem = Problem
 // InternalProblem defines model for InternalProblem.
 type InternalProblem = Problem
 
+// NotFoundProblem defines model for NotFoundProblem.
+type NotFoundProblem = Problem
+
 // UnauthenticatedProblem defines model for UnauthenticatedProblem.
 type UnauthenticatedProblem = Problem
 
 // ValidationProblem defines model for ValidationProblem.
 type ValidationProblem = Problem
 
+// ListBuyRequestsParams defines parameters for ListBuyRequests.
+type ListBuyRequestsParams struct {
+	// Q Case-insensitive ISBN or title search.
+	Q         *Search    `form:"q,omitempty" json:"q,omitempty"`
+	Condition *Condition `form:"condition,omitempty" json:"condition,omitempty"`
+
+	// Mine Include the authenticated user's listings in every state.
+	Mine *Mine `form:"mine,omitempty" json:"mine,omitempty"`
+
+	// Cursor Opaque continuation cursor returned by a prior page.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListSellListingsParams defines parameters for ListSellListings.
+type ListSellListingsParams struct {
+	// Q Case-insensitive ISBN or title search.
+	Q         *Search    `form:"q,omitempty" json:"q,omitempty"`
+	Condition *Condition `form:"condition,omitempty" json:"condition,omitempty"`
+
+	// Mine Include the authenticated user's listings in every state.
+	Mine *Mine `form:"mine,omitempty" json:"mine,omitempty"`
+
+	// Cursor Opaque continuation cursor returned by a prior page.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// CreateBuyRequestJSONRequestBody defines body for CreateBuyRequest for application/json ContentType.
+type CreateBuyRequestJSONRequestBody = CreateBuyRequestInput
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginInput
+
+// CreateSellListingJSONRequestBody defines body for CreateSellListing for application/json ContentType.
+type CreateSellListingJSONRequestBody = CreateSellListingInput
 
 // SignupJSONRequestBody defines body for Signup for application/json ContentType.
 type SignupJSONRequestBody = SignupInput
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ListBuyRequests Browse buy requests
+	// (GET /buy-requests)
+	ListBuyRequests(c *gin.Context, params ListBuyRequestsParams)
+	// CreateBuyRequest Publish a buy request
+	// (POST /buy-requests)
+	CreateBuyRequest(c *gin.Context)
+	// WithdrawBuyRequest Withdraw an open buy request
+	// (DELETE /buy-requests/{buyRequestId})
+	WithdrawBuyRequest(c *gin.Context, buyRequestId BuyRequestId)
+	// GetBuyRequest Get a buy request
+	// (GET /buy-requests/{buyRequestId})
+	GetBuyRequest(c *gin.Context, buyRequestId BuyRequestId)
 	// Login Create a session
 	// (POST /login)
 	Login(c *gin.Context)
+	// ListSellListings Browse sale listings
+	// (GET /sell-listings)
+	ListSellListings(c *gin.Context, params ListSellListingsParams)
+	// CreateSellListing Publish a sale listing
+	// (POST /sell-listings)
+	CreateSellListing(c *gin.Context)
+	// WithdrawSellListing Withdraw an open sale listing
+	// (DELETE /sell-listings/{sellListingId})
+	WithdrawSellListing(c *gin.Context, sellListingId SellListingId)
+	// GetSellListing Get a sale listing
+	// (GET /sell-listings/{sellListingId})
+	GetSellListing(c *gin.Context, sellListingId SellListingId)
 	// Logout Delete the current session
 	// (DELETE /sessions/current)
 	Logout(c *gin.Context)
@@ -167,6 +423,128 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(c *gin.Context)
 
+// ListBuyRequests operation middleware
+func (siw *ServerInterfaceWrapper) ListBuyRequests(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListBuyRequestsParams
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", c.Request.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter q: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "condition" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "condition", c.Request.URL.Query(), &params.Condition, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter condition: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "mine" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "mine", c.Request.URL.Query(), &params.Mine, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter mine: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", c.Request.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter cursor: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", c.Request.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListBuyRequests(c, params)
+}
+
+// CreateBuyRequest operation middleware
+func (siw *ServerInterfaceWrapper) CreateBuyRequest(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateBuyRequest(c)
+}
+
+// WithdrawBuyRequest operation middleware
+func (siw *ServerInterfaceWrapper) WithdrawBuyRequest(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "buyRequestId" -------------
+	var buyRequestId BuyRequestId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "buyRequestId", c.Param("buyRequestId"), &buyRequestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter buyRequestId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.WithdrawBuyRequest(c, buyRequestId)
+}
+
+// GetBuyRequest operation middleware
+func (siw *ServerInterfaceWrapper) GetBuyRequest(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "buyRequestId" -------------
+	var buyRequestId BuyRequestId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "buyRequestId", c.Param("buyRequestId"), &buyRequestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter buyRequestId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetBuyRequest(c, buyRequestId)
+}
+
 // Login operation middleware
 func (siw *ServerInterfaceWrapper) Login(c *gin.Context) {
 
@@ -178,6 +556,128 @@ func (siw *ServerInterfaceWrapper) Login(c *gin.Context) {
 	}
 
 	siw.Handler.Login(c)
+}
+
+// ListSellListings operation middleware
+func (siw *ServerInterfaceWrapper) ListSellListings(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListSellListingsParams
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", c.Request.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter q: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "condition" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "condition", c.Request.URL.Query(), &params.Condition, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter condition: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "mine" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "mine", c.Request.URL.Query(), &params.Mine, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter mine: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", c.Request.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter cursor: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", c.Request.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListSellListings(c, params)
+}
+
+// CreateSellListing operation middleware
+func (siw *ServerInterfaceWrapper) CreateSellListing(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateSellListing(c)
+}
+
+// WithdrawSellListing operation middleware
+func (siw *ServerInterfaceWrapper) WithdrawSellListing(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "sellListingId" -------------
+	var sellListingId SellListingId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sellListingId", c.Param("sellListingId"), &sellListingId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter sellListingId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.WithdrawSellListing(c, sellListingId)
+}
+
+// GetSellListing operation middleware
+func (siw *ServerInterfaceWrapper) GetSellListing(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "sellListingId" -------------
+	var sellListingId SellListingId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sellListingId", c.Param("sellListingId"), &sellListingId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter sellListingId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetSellListing(c, sellListingId)
 }
 
 // Logout operation middleware
@@ -250,7 +750,17 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/login", wrapper.Login)
 	router.DELETE(options.BaseURL+"/sessions/current", wrapper.Logout)
 	router.GET(options.BaseURL+"/sessions/current", wrapper.GetCurrentSession)
+	router.GET(options.BaseURL+"/sell-listings", wrapper.ListSellListings)
+	router.POST(options.BaseURL+"/sell-listings", wrapper.CreateSellListing)
+	router.DELETE(options.BaseURL+"/sell-listings/:sellListingId", wrapper.WithdrawSellListing)
+	router.GET(options.BaseURL+"/sell-listings/:sellListingId", wrapper.GetSellListing)
+	router.GET(options.BaseURL+"/buy-requests", wrapper.ListBuyRequests)
+	router.POST(options.BaseURL+"/buy-requests", wrapper.CreateBuyRequest)
+	router.DELETE(options.BaseURL+"/buy-requests/:buyRequestId", wrapper.WithdrawBuyRequest)
+	router.GET(options.BaseURL+"/buy-requests/:buyRequestId", wrapper.GetBuyRequest)
 }
+
+type BuyRequestPageJSONResponse BuyRequestPage
 
 type ConflictProblemApplicationProblemPlusJSONResponse Problem
 
@@ -258,9 +768,303 @@ type ForbiddenProblemApplicationProblemPlusJSONResponse Problem
 
 type InternalProblemApplicationProblemPlusJSONResponse Problem
 
+type NotFoundProblemApplicationProblemPlusJSONResponse Problem
+
+type SellListingPageJSONResponse SellListingPage
+
 type UnauthenticatedProblemApplicationProblemPlusJSONResponse Problem
 
 type ValidationProblemApplicationProblemPlusJSONResponse Problem
+
+type ListBuyRequestsRequestObject struct {
+	Params ListBuyRequestsParams
+}
+
+type ListBuyRequestsResponseObject interface {
+	VisitListBuyRequestsResponse(w http.ResponseWriter) error
+}
+
+type ListBuyRequests200JSONResponse struct{ BuyRequestPageJSONResponse }
+
+func (response ListBuyRequests200JSONResponse) VisitListBuyRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListBuyRequests400ApplicationProblemPlusJSONResponse struct {
+	ValidationProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListBuyRequests400ApplicationProblemPlusJSONResponse) VisitListBuyRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListBuyRequests401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListBuyRequests401ApplicationProblemPlusJSONResponse) VisitListBuyRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListBuyRequests500ApplicationProblemPlusJSONResponse struct {
+	InternalProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListBuyRequests500ApplicationProblemPlusJSONResponse) VisitListBuyRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBuyRequestRequestObject struct {
+	Body *CreateBuyRequestJSONRequestBody
+}
+
+type CreateBuyRequestResponseObject interface {
+	VisitCreateBuyRequestResponse(w http.ResponseWriter) error
+}
+
+type CreateBuyRequest201JSONResponse BuyRequest
+
+func (response CreateBuyRequest201JSONResponse) VisitCreateBuyRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBuyRequest400ApplicationProblemPlusJSONResponse struct {
+	ValidationProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateBuyRequest400ApplicationProblemPlusJSONResponse) VisitCreateBuyRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBuyRequest401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateBuyRequest401ApplicationProblemPlusJSONResponse) VisitCreateBuyRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBuyRequest500ApplicationProblemPlusJSONResponse struct {
+	InternalProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateBuyRequest500ApplicationProblemPlusJSONResponse) VisitCreateBuyRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawBuyRequestRequestObject struct {
+	BuyRequestId BuyRequestId `json:"buyRequestId"`
+}
+
+type WithdrawBuyRequestResponseObject interface {
+	VisitWithdrawBuyRequestResponse(w http.ResponseWriter) error
+}
+
+type WithdrawBuyRequest204Response struct {
+}
+
+func (response WithdrawBuyRequest204Response) VisitWithdrawBuyRequestResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type WithdrawBuyRequest401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedProblemApplicationProblemPlusJSONResponse
+}
+
+func (response WithdrawBuyRequest401ApplicationProblemPlusJSONResponse) VisitWithdrawBuyRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawBuyRequest403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenProblemApplicationProblemPlusJSONResponse
+}
+
+func (response WithdrawBuyRequest403ApplicationProblemPlusJSONResponse) VisitWithdrawBuyRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawBuyRequest404ApplicationProblemPlusJSONResponse struct {
+	NotFoundProblemApplicationProblemPlusJSONResponse
+}
+
+func (response WithdrawBuyRequest404ApplicationProblemPlusJSONResponse) VisitWithdrawBuyRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawBuyRequest409ApplicationProblemPlusJSONResponse struct {
+	ConflictProblemApplicationProblemPlusJSONResponse
+}
+
+func (response WithdrawBuyRequest409ApplicationProblemPlusJSONResponse) VisitWithdrawBuyRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawBuyRequest500ApplicationProblemPlusJSONResponse struct {
+	InternalProblemApplicationProblemPlusJSONResponse
+}
+
+func (response WithdrawBuyRequest500ApplicationProblemPlusJSONResponse) VisitWithdrawBuyRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBuyRequestRequestObject struct {
+	BuyRequestId BuyRequestId `json:"buyRequestId"`
+}
+
+type GetBuyRequestResponseObject interface {
+	VisitGetBuyRequestResponse(w http.ResponseWriter) error
+}
+
+type GetBuyRequest200JSONResponse BuyRequest
+
+func (response GetBuyRequest200JSONResponse) VisitGetBuyRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBuyRequest404ApplicationProblemPlusJSONResponse struct {
+	NotFoundProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetBuyRequest404ApplicationProblemPlusJSONResponse) VisitGetBuyRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBuyRequest500ApplicationProblemPlusJSONResponse struct {
+	InternalProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetBuyRequest500ApplicationProblemPlusJSONResponse) VisitGetBuyRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type LoginRequestObject struct {
 	Body *LoginJSONRequestBody
@@ -331,6 +1135,296 @@ type Login500ApplicationProblemPlusJSONResponse struct {
 }
 
 func (response Login500ApplicationProblemPlusJSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSellListingsRequestObject struct {
+	Params ListSellListingsParams
+}
+
+type ListSellListingsResponseObject interface {
+	VisitListSellListingsResponse(w http.ResponseWriter) error
+}
+
+type ListSellListings200JSONResponse struct{ SellListingPageJSONResponse }
+
+func (response ListSellListings200JSONResponse) VisitListSellListingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSellListings400ApplicationProblemPlusJSONResponse struct {
+	ValidationProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListSellListings400ApplicationProblemPlusJSONResponse) VisitListSellListingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSellListings401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListSellListings401ApplicationProblemPlusJSONResponse) VisitListSellListingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSellListings500ApplicationProblemPlusJSONResponse struct {
+	InternalProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListSellListings500ApplicationProblemPlusJSONResponse) VisitListSellListingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSellListingRequestObject struct {
+	Body *CreateSellListingJSONRequestBody
+}
+
+type CreateSellListingResponseObject interface {
+	VisitCreateSellListingResponse(w http.ResponseWriter) error
+}
+
+type CreateSellListing201JSONResponse SellListing
+
+func (response CreateSellListing201JSONResponse) VisitCreateSellListingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSellListing400ApplicationProblemPlusJSONResponse struct {
+	ValidationProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateSellListing400ApplicationProblemPlusJSONResponse) VisitCreateSellListingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSellListing401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateSellListing401ApplicationProblemPlusJSONResponse) VisitCreateSellListingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSellListing500ApplicationProblemPlusJSONResponse struct {
+	InternalProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateSellListing500ApplicationProblemPlusJSONResponse) VisitCreateSellListingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawSellListingRequestObject struct {
+	SellListingId SellListingId `json:"sellListingId"`
+}
+
+type WithdrawSellListingResponseObject interface {
+	VisitWithdrawSellListingResponse(w http.ResponseWriter) error
+}
+
+type WithdrawSellListing204Response struct {
+}
+
+func (response WithdrawSellListing204Response) VisitWithdrawSellListingResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type WithdrawSellListing401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedProblemApplicationProblemPlusJSONResponse
+}
+
+func (response WithdrawSellListing401ApplicationProblemPlusJSONResponse) VisitWithdrawSellListingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawSellListing403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenProblemApplicationProblemPlusJSONResponse
+}
+
+func (response WithdrawSellListing403ApplicationProblemPlusJSONResponse) VisitWithdrawSellListingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawSellListing404ApplicationProblemPlusJSONResponse struct {
+	NotFoundProblemApplicationProblemPlusJSONResponse
+}
+
+func (response WithdrawSellListing404ApplicationProblemPlusJSONResponse) VisitWithdrawSellListingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawSellListing409ApplicationProblemPlusJSONResponse struct {
+	ConflictProblemApplicationProblemPlusJSONResponse
+}
+
+func (response WithdrawSellListing409ApplicationProblemPlusJSONResponse) VisitWithdrawSellListingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawSellListing500ApplicationProblemPlusJSONResponse struct {
+	InternalProblemApplicationProblemPlusJSONResponse
+}
+
+func (response WithdrawSellListing500ApplicationProblemPlusJSONResponse) VisitWithdrawSellListingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSellListingRequestObject struct {
+	SellListingId SellListingId `json:"sellListingId"`
+}
+
+type GetSellListingResponseObject interface {
+	VisitGetSellListingResponse(w http.ResponseWriter) error
+}
+
+type GetSellListing200JSONResponse SellListing
+
+func (response GetSellListing200JSONResponse) VisitGetSellListingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSellListing404ApplicationProblemPlusJSONResponse struct {
+	NotFoundProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetSellListing404ApplicationProblemPlusJSONResponse) VisitGetSellListingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSellListing500ApplicationProblemPlusJSONResponse struct {
+	InternalProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetSellListing500ApplicationProblemPlusJSONResponse) VisitGetSellListingResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -532,9 +1626,33 @@ func (response Signup500ApplicationProblemPlusJSONResponse) VisitSignupResponse(
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// ListBuyRequests Browse buy requests
+	// (GET /buy-requests)
+	ListBuyRequests(ctx context.Context, request ListBuyRequestsRequestObject) (ListBuyRequestsResponseObject, error)
+	// CreateBuyRequest Publish a buy request
+	// (POST /buy-requests)
+	CreateBuyRequest(ctx context.Context, request CreateBuyRequestRequestObject) (CreateBuyRequestResponseObject, error)
+	// WithdrawBuyRequest Withdraw an open buy request
+	// (DELETE /buy-requests/{buyRequestId})
+	WithdrawBuyRequest(ctx context.Context, request WithdrawBuyRequestRequestObject) (WithdrawBuyRequestResponseObject, error)
+	// GetBuyRequest Get a buy request
+	// (GET /buy-requests/{buyRequestId})
+	GetBuyRequest(ctx context.Context, request GetBuyRequestRequestObject) (GetBuyRequestResponseObject, error)
 	// Login Create a session
 	// (POST /login)
 	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
+	// ListSellListings Browse sale listings
+	// (GET /sell-listings)
+	ListSellListings(ctx context.Context, request ListSellListingsRequestObject) (ListSellListingsResponseObject, error)
+	// CreateSellListing Publish a sale listing
+	// (POST /sell-listings)
+	CreateSellListing(ctx context.Context, request CreateSellListingRequestObject) (CreateSellListingResponseObject, error)
+	// WithdrawSellListing Withdraw an open sale listing
+	// (DELETE /sell-listings/{sellListingId})
+	WithdrawSellListing(ctx context.Context, request WithdrawSellListingRequestObject) (WithdrawSellListingResponseObject, error)
+	// GetSellListing Get a sale listing
+	// (GET /sell-listings/{sellListingId})
+	GetSellListing(ctx context.Context, request GetSellListingRequestObject) (GetSellListingResponseObject, error)
 	// Logout Delete the current session
 	// (DELETE /sessions/current)
 	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
@@ -603,6 +1721,115 @@ type strictHandler struct {
 	options     StrictGinServerOptions
 }
 
+// ListBuyRequests operation middleware
+func (sh *strictHandler) ListBuyRequests(ctx *gin.Context, params ListBuyRequestsParams) {
+	var request ListBuyRequestsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListBuyRequests(ctx, request.(ListBuyRequestsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListBuyRequests")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ListBuyRequestsResponseObject); ok {
+		if err := validResponse.VisitListBuyRequestsResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateBuyRequest operation middleware
+func (sh *strictHandler) CreateBuyRequest(ctx *gin.Context) {
+	var request CreateBuyRequestRequestObject
+
+	var body CreateBuyRequestJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateBuyRequest(ctx, request.(CreateBuyRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateBuyRequest")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(CreateBuyRequestResponseObject); ok {
+		if err := validResponse.VisitCreateBuyRequestResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// WithdrawBuyRequest operation middleware
+func (sh *strictHandler) WithdrawBuyRequest(ctx *gin.Context, buyRequestId BuyRequestId) {
+	var request WithdrawBuyRequestRequestObject
+
+	request.BuyRequestId = buyRequestId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.WithdrawBuyRequest(ctx, request.(WithdrawBuyRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "WithdrawBuyRequest")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(WithdrawBuyRequestResponseObject); ok {
+		if err := validResponse.VisitWithdrawBuyRequestResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetBuyRequest operation middleware
+func (sh *strictHandler) GetBuyRequest(ctx *gin.Context, buyRequestId BuyRequestId) {
+	var request GetBuyRequestRequestObject
+
+	request.BuyRequestId = buyRequestId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetBuyRequest(ctx, request.(GetBuyRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetBuyRequest")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(GetBuyRequestResponseObject); ok {
+		if err := validResponse.VisitGetBuyRequestResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Login operation middleware
 func (sh *strictHandler) Login(ctx *gin.Context) {
 	var request LoginRequestObject
@@ -627,6 +1854,115 @@ func (sh *strictHandler) Login(ctx *gin.Context) {
 		sh.options.HandlerErrorFunc(ctx, err)
 	} else if validResponse, ok := response.(LoginResponseObject); ok {
 		if err := validResponse.VisitLoginResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListSellListings operation middleware
+func (sh *strictHandler) ListSellListings(ctx *gin.Context, params ListSellListingsParams) {
+	var request ListSellListingsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListSellListings(ctx, request.(ListSellListingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListSellListings")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ListSellListingsResponseObject); ok {
+		if err := validResponse.VisitListSellListingsResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateSellListing operation middleware
+func (sh *strictHandler) CreateSellListing(ctx *gin.Context) {
+	var request CreateSellListingRequestObject
+
+	var body CreateSellListingJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateSellListing(ctx, request.(CreateSellListingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateSellListing")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(CreateSellListingResponseObject); ok {
+		if err := validResponse.VisitCreateSellListingResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// WithdrawSellListing operation middleware
+func (sh *strictHandler) WithdrawSellListing(ctx *gin.Context, sellListingId SellListingId) {
+	var request WithdrawSellListingRequestObject
+
+	request.SellListingId = sellListingId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.WithdrawSellListing(ctx, request.(WithdrawSellListingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "WithdrawSellListing")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(WithdrawSellListingResponseObject); ok {
+		if err := validResponse.VisitWithdrawSellListingResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSellListing operation middleware
+func (sh *strictHandler) GetSellListing(ctx *gin.Context, sellListingId SellListingId) {
+	var request GetSellListingRequestObject
+
+	request.SellListingId = sellListingId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSellListing(ctx, request.(GetSellListingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSellListing")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(GetSellListingResponseObject); ok {
+		if err := validResponse.VisitGetSellListingResponse(ctx.Writer); err != nil {
 			sh.options.ResponseErrorHandlerFunc(ctx, err)
 		}
 	} else if response != nil {

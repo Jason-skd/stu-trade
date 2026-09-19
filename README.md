@@ -84,12 +84,8 @@ STUTRADE_TEST_DATABASE_URL='postgres://...' make test-integration
 
 仓库治理：
 
-- [工作流治理](docs/governance/workflow.md)
-- [工程治理](docs/governance/engineering.md)
-- [验证治理](docs/governance/verification.md)
-- [治理元规则](docs/governance/meta.md)
-- [交付治理](docs/governance/delivery.md)
-- [仓库治理补充](docs/governance/repository.md)
+- [通用工程约束](docs/governance/engineering.md)
+- [StuTrade 工程边界](docs/governance/repository.md)
 
 课程要求译文：
 

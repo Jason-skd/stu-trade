@@ -29,6 +29,7 @@ func TestListingHTTPCreateBrowseAndWithdrawFlow(t *testing.T) {
 	router := NewRouter(
 		NewReadiness(&stubDatabasePinger{}, &stubMigrationChecker{}, discardLogger()), nil,
 		NewListingServer(listingService, authService, discardLogger()),
+		nil,
 	)
 	ownerCookie := sessionCookieName + "=" + sessions.tokens[owner.ID]
 	strangerCookie := sessionCookieName + "=" + sessions.tokens[stranger.ID]
@@ -58,6 +59,10 @@ func TestListingHTTPCreateBrowseAndWithdrawFlow(t *testing.T) {
 	detail := authRequest(router, http.MethodGet, "/api/v1/sell-listings/"+nextID.String(), "", ownerCookie)
 	if detail.Code != http.StatusOK || !strings.Contains(detail.Body.String(), `"nickname":"Owner"`) {
 		t.Fatalf("detail = (%d, %s)", detail.Code, detail.Body.String())
+	}
+	strangerDetail := authRequest(router, http.MethodGet, "/api/v1/sell-listings/"+nextID.String(), "", strangerCookie)
+	if strangerDetail.Code != http.StatusOK || !strings.Contains(strangerDetail.Body.String(), `"availableActions":["purchase"]`) {
+		t.Fatalf("stranger detail = (%d, %s)", strangerDetail.Code, strangerDetail.Body.String())
 	}
 	wrongRoute := authRequest(router, http.MethodGet, "/api/v1/buy-requests/"+nextID.String(), "", "")
 	if wrongRoute.Code != http.StatusNotFound {
@@ -93,6 +98,7 @@ func TestListingHTTPBuyMappingAndProblems(t *testing.T) {
 	router := NewRouter(
 		NewReadiness(&stubDatabasePinger{}, &stubMigrationChecker{}, discardLogger()), nil,
 		NewListingServer(listingService, authService, discardLogger()),
+		nil,
 	)
 	cookie := sessionCookieName + "=" + sessions.tokens[owner.ID]
 	invalid := `{"book":{"isbn":"bad","title":"","author":""},"condition":"worn","maximumPrice":{"amount":0,"currency":"USD"}}`
@@ -200,12 +206,16 @@ func (s *httpListingStore) ReadListings(_ context.Context, ids []string) ([]engi
 	}
 	return result, nil
 }
-func (s *httpListingStore) ReadListingForUpdate(_ context.Context, id string) (engine.ListingRecord, error) {
-	record, ok := s.records[id]
-	if !ok {
-		return engine.ListingRecord{}, engine.ErrListingNotFound
+func (s *httpListingStore) ReadListingsForUpdate(_ context.Context, ids []string) ([]engine.ListingRecord, error) {
+	result := make([]engine.ListingRecord, 0, len(ids))
+	for _, id := range ids {
+		record, ok := s.records[id]
+		if !ok {
+			return nil, engine.ErrListingNotFound
+		}
+		result = append(result, record)
 	}
-	return record, nil
+	return result, nil
 }
 func (s *httpListingStore) UpdateListing(_ context.Context, record engine.ListingRecord) error {
 	s.records[record.ID] = record

@@ -103,6 +103,69 @@ func (e ListingStatus) Valid() bool {
 	}
 }
 
+// Defines values for MatchSource.
+const (
+	Automatic        MatchSource = "automatic"
+	DirectAcceptance MatchSource = "direct_acceptance"
+	DirectPurchase   MatchSource = "direct_purchase"
+)
+
+// Valid indicates whether the value is a known member of the MatchSource enum.
+func (e MatchSource) Valid() bool {
+	switch e {
+	case Automatic:
+		return true
+	case DirectAcceptance:
+		return true
+	case DirectPurchase:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MatchStatus.
+const (
+	MatchStatusCancelled MatchStatus = "cancelled"
+	MatchStatusCompleted MatchStatus = "completed"
+	MatchStatusDeclined  MatchStatus = "declined"
+	MatchStatusPending   MatchStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the MatchStatus enum.
+func (e MatchStatus) Valid() bool {
+	switch e {
+	case MatchStatusCancelled:
+		return true
+	case MatchStatusCompleted:
+		return true
+	case MatchStatusDeclined:
+		return true
+	case MatchStatusPending:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OrderStatus.
+const (
+	OrderStatusCompleted       OrderStatus = "completed"
+	OrderStatusPendingDelivery OrderStatus = "pending_delivery"
+)
+
+// Valid indicates whether the value is a known member of the OrderStatus enum.
+func (e OrderStatus) Valid() bool {
+	switch e {
+	case OrderStatusCompleted:
+		return true
+	case OrderStatusPendingDelivery:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProblemCode.
 const (
 	Conflict                ProblemCode = "conflict"
@@ -200,6 +263,13 @@ type CreateSellListingInput struct {
 // Currency defines model for Currency.
 type Currency string
 
+// DirectTradeResult defines model for DirectTradeResult.
+type DirectTradeResult struct {
+	// Match Automatic matches reference both listings; direct trades reference only the real target listing.
+	Match Match `json:"match"`
+	Order Order `json:"order"`
+}
+
 // FieldProblem defines model for FieldProblem.
 type FieldProblem struct {
 	Code   string `json:"code"`
@@ -222,12 +292,87 @@ type LoginInput struct {
 	Password *string             `json:"password,omitempty"`
 }
 
+// Match Automatic matches reference both listings; direct trades reference only the real target listing.
+type Match struct {
+	AgreedPrice Money `json:"agreedPrice"`
+
+	// BuyRequest Required for automatic matches and direct acceptances; absent for direct purchases without a real buy request.
+	BuyRequest       *BuyRequest `json:"buyRequest,omitempty"`
+	BuyerConfirmedAt *time.Time  `json:"buyerConfirmedAt"`
+	CreatedAt        time.Time   `json:"createdAt"`
+
+	// Id Opaque identifier.
+	Id      Id      `json:"id"`
+	OrderId *string `json:"orderId,omitempty"`
+
+	// SellListing Required for automatic matches and direct purchases; absent for direct acceptances without a real sale listing.
+	SellListing       *SellListing `json:"sellListing,omitempty"`
+	SellerConfirmedAt *time.Time   `json:"sellerConfirmedAt"`
+	Source            MatchSource  `json:"source"`
+	Status            MatchStatus  `json:"status"`
+	UpdatedAt         time.Time    `json:"updatedAt"`
+	union             json.RawMessage
+}
+
+// Match0 defines model for Match.0.
+type Match0 struct {
+	BuyRequest  BuyRequest  `json:"buyRequest"`
+	SellListing SellListing `json:"sellListing"`
+	Source      interface{} `json:"source"`
+}
+
+// Match1 defines model for Match.1.
+type Match1 struct {
+	SellListing SellListing `json:"sellListing"`
+	Source      interface{} `json:"source"`
+}
+
+// Match2 defines model for Match.2.
+type Match2 struct {
+	BuyRequest BuyRequest  `json:"buyRequest"`
+	Source     interface{} `json:"source"`
+}
+
+// MatchSource defines model for MatchSource.
+type MatchSource string
+
+// MatchStatus defines model for MatchStatus.
+type MatchStatus string
+
 // Money defines model for Money.
 type Money struct {
 	// Amount Amount in the smallest currency unit.
 	Amount   int      `json:"amount"`
 	Currency Currency `json:"currency"`
 }
+
+// Order defines model for Order.
+type Order struct {
+	AgreedPrice                Money      `json:"agreedPrice"`
+	Book                       Book       `json:"book"`
+	Buyer                      OrderUser  `json:"buyer"`
+	BuyerConfirmedCompletionAt *time.Time `json:"buyerConfirmedCompletionAt"`
+	CreatedAt                  time.Time  `json:"createdAt"`
+
+	// Id Opaque identifier.
+	Id Id `json:"id"`
+
+	// MatchId Opaque identifier.
+	MatchId                     Id          `json:"matchId"`
+	Seller                      OrderUser   `json:"seller"`
+	SellerConfirmedCompletionAt *time.Time  `json:"sellerConfirmedCompletionAt"`
+	Status                      OrderStatus `json:"status"`
+	UpdatedAt                   time.Time   `json:"updatedAt"`
+}
+
+// OrderPage defines model for OrderPage.
+type OrderPage struct {
+	Items      []Order `json:"items"`
+	NextCursor *string `json:"nextCursor"`
+}
+
+// OrderStatus defines model for OrderStatus.
+type OrderStatus string
 
 // OrderUser defines model for OrderUser.
 type OrderUser struct {
@@ -348,6 +493,15 @@ type ListBuyRequestsParams struct {
 	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListOrdersParams defines parameters for ListOrders.
+type ListOrdersParams struct {
+	Status *OrderStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Cursor Opaque continuation cursor returned by a prior page.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // ListSellListingsParams defines parameters for ListSellListings.
 type ListSellListingsParams struct {
 	// Q Case-insensitive ISBN or title search.
@@ -374,6 +528,253 @@ type CreateSellListingJSONRequestBody = CreateSellListingInput
 // SignupJSONRequestBody defines body for Signup for application/json ContentType.
 type SignupJSONRequestBody = SignupInput
 
+// AsMatch0 returns the union data inside the Match as a Match0
+func (t Match) AsMatch0() (Match0, error) {
+	var body Match0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMatch0 overwrites any union data inside the Match as the provided Match0
+func (t *Match) FromMatch0(v Match0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMatch0 performs a merge with any union data inside the Match, using the provided Match0
+func (t *Match) MergeMatch0(v Match0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMatch1 returns the union data inside the Match as a Match1
+func (t Match) AsMatch1() (Match1, error) {
+	var body Match1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMatch1 overwrites any union data inside the Match as the provided Match1
+func (t *Match) FromMatch1(v Match1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMatch1 performs a merge with any union data inside the Match, using the provided Match1
+func (t *Match) MergeMatch1(v Match1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMatch2 returns the union data inside the Match as a Match2
+func (t Match) AsMatch2() (Match2, error) {
+	var body Match2
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMatch2 overwrites any union data inside the Match as the provided Match2
+func (t *Match) FromMatch2(v Match2) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMatch2 performs a merge with any union data inside the Match, using the provided Match2
+func (t *Match) MergeMatch2(v Match2) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t Match) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	object := make(map[string]json.RawMessage)
+	if t.union != nil {
+		err = json.Unmarshal(b, &object)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	object["agreedPrice"], err = json.Marshal(t.AgreedPrice)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'agreedPrice': %w", err)
+	}
+
+	if t.BuyRequest != nil {
+		object["buyRequest"], err = json.Marshal(t.BuyRequest)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'buyRequest': %w", err)
+		}
+	}
+
+	object["buyerConfirmedAt"], err = json.Marshal(t.BuyerConfirmedAt)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'buyerConfirmedAt': %w", err)
+	}
+
+	object["createdAt"], err = json.Marshal(t.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'createdAt': %w", err)
+	}
+
+	object["id"], err = json.Marshal(t.Id)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'id': %w", err)
+	}
+
+	if t.OrderId != nil {
+		object["orderId"], err = json.Marshal(t.OrderId)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'orderId': %w", err)
+		}
+	}
+
+	if t.SellListing != nil {
+		object["sellListing"], err = json.Marshal(t.SellListing)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'sellListing': %w", err)
+		}
+	}
+
+	object["sellerConfirmedAt"], err = json.Marshal(t.SellerConfirmedAt)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'sellerConfirmedAt': %w", err)
+	}
+
+	object["source"], err = json.Marshal(t.Source)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'source': %w", err)
+	}
+
+	object["status"], err = json.Marshal(t.Status)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'status': %w", err)
+	}
+
+	object["updatedAt"], err = json.Marshal(t.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'updatedAt': %w", err)
+	}
+
+	b, err = json.Marshal(object)
+	return b, err
+}
+
+func (t *Match) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	if err != nil {
+		return err
+	}
+	object := make(map[string]json.RawMessage)
+	err = json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["agreedPrice"]; found {
+		err = json.Unmarshal(raw, &t.AgreedPrice)
+		if err != nil {
+			return fmt.Errorf("error reading 'agreedPrice': %w", err)
+		}
+	}
+
+	if raw, found := object["buyRequest"]; found {
+		err = json.Unmarshal(raw, &t.BuyRequest)
+		if err != nil {
+			return fmt.Errorf("error reading 'buyRequest': %w", err)
+		}
+	}
+
+	if raw, found := object["buyerConfirmedAt"]; found {
+		err = json.Unmarshal(raw, &t.BuyerConfirmedAt)
+		if err != nil {
+			return fmt.Errorf("error reading 'buyerConfirmedAt': %w", err)
+		}
+	}
+
+	if raw, found := object["createdAt"]; found {
+		err = json.Unmarshal(raw, &t.CreatedAt)
+		if err != nil {
+			return fmt.Errorf("error reading 'createdAt': %w", err)
+		}
+	}
+
+	if raw, found := object["id"]; found {
+		err = json.Unmarshal(raw, &t.Id)
+		if err != nil {
+			return fmt.Errorf("error reading 'id': %w", err)
+		}
+	}
+
+	if raw, found := object["orderId"]; found {
+		err = json.Unmarshal(raw, &t.OrderId)
+		if err != nil {
+			return fmt.Errorf("error reading 'orderId': %w", err)
+		}
+	}
+
+	if raw, found := object["sellListing"]; found {
+		err = json.Unmarshal(raw, &t.SellListing)
+		if err != nil {
+			return fmt.Errorf("error reading 'sellListing': %w", err)
+		}
+	}
+
+	if raw, found := object["sellerConfirmedAt"]; found {
+		err = json.Unmarshal(raw, &t.SellerConfirmedAt)
+		if err != nil {
+			return fmt.Errorf("error reading 'sellerConfirmedAt': %w", err)
+		}
+	}
+
+	if raw, found := object["source"]; found {
+		err = json.Unmarshal(raw, &t.Source)
+		if err != nil {
+			return fmt.Errorf("error reading 'source': %w", err)
+		}
+	}
+
+	if raw, found := object["status"]; found {
+		err = json.Unmarshal(raw, &t.Status)
+		if err != nil {
+			return fmt.Errorf("error reading 'status': %w", err)
+		}
+	}
+
+	if raw, found := object["updatedAt"]; found {
+		err = json.Unmarshal(raw, &t.UpdatedAt)
+		if err != nil {
+			return fmt.Errorf("error reading 'updatedAt': %w", err)
+		}
+	}
+
+	return err
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ListBuyRequests Browse buy requests
@@ -391,6 +792,9 @@ type ServerInterface interface {
 	// Login Create a session
 	// (POST /login)
 	Login(c *gin.Context)
+	// ListOrders List the current user's orders
+	// (GET /orders)
+	ListOrders(c *gin.Context, params ListOrdersParams)
 	// ListSellListings Browse sale listings
 	// (GET /sell-listings)
 	ListSellListings(c *gin.Context, params ListSellListingsParams)
@@ -403,6 +807,9 @@ type ServerInterface interface {
 	// GetSellListing Get a sale listing
 	// (GET /sell-listings/{sellListingId})
 	GetSellListing(c *gin.Context, sellListingId SellListingId)
+	// PurchaseSellListing Buy a sale listing at its listed price
+	// (POST /sell-listings/{sellListingId}/purchase)
+	PurchaseSellListing(c *gin.Context, sellListingId SellListingId)
 	// Logout Delete the current session
 	// (DELETE /sessions/current)
 	Logout(c *gin.Context)
@@ -558,6 +965,49 @@ func (siw *ServerInterfaceWrapper) Login(c *gin.Context) {
 	siw.Handler.Login(c)
 }
 
+// ListOrders operation middleware
+func (siw *ServerInterfaceWrapper) ListOrders(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListOrdersParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", c.Request.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter status: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", c.Request.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter cursor: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", c.Request.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListOrders(c, params)
+}
+
 // ListSellListings operation middleware
 func (siw *ServerInterfaceWrapper) ListSellListings(c *gin.Context) {
 
@@ -680,6 +1130,31 @@ func (siw *ServerInterfaceWrapper) GetSellListing(c *gin.Context) {
 	siw.Handler.GetSellListing(c, sellListingId)
 }
 
+// PurchaseSellListing operation middleware
+func (siw *ServerInterfaceWrapper) PurchaseSellListing(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "sellListingId" -------------
+	var sellListingId SellListingId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sellListingId", c.Param("sellListingId"), &sellListingId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter sellListingId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.PurchaseSellListing(c, sellListingId)
+}
+
 // Logout operation middleware
 func (siw *ServerInterfaceWrapper) Logout(c *gin.Context) {
 
@@ -754,10 +1229,12 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/sell-listings", wrapper.CreateSellListing)
 	router.DELETE(options.BaseURL+"/sell-listings/:sellListingId", wrapper.WithdrawSellListing)
 	router.GET(options.BaseURL+"/sell-listings/:sellListingId", wrapper.GetSellListing)
+	router.POST(options.BaseURL+"/sell-listings/:sellListingId/purchase", wrapper.PurchaseSellListing)
 	router.GET(options.BaseURL+"/buy-requests", wrapper.ListBuyRequests)
 	router.POST(options.BaseURL+"/buy-requests", wrapper.CreateBuyRequest)
 	router.DELETE(options.BaseURL+"/buy-requests/:buyRequestId", wrapper.WithdrawBuyRequest)
 	router.GET(options.BaseURL+"/buy-requests/:buyRequestId", wrapper.GetBuyRequest)
+	router.GET(options.BaseURL+"/orders", wrapper.ListOrders)
 }
 
 type BuyRequestPageJSONResponse BuyRequestPage
@@ -769,6 +1246,8 @@ type ForbiddenProblemApplicationProblemPlusJSONResponse Problem
 type InternalProblemApplicationProblemPlusJSONResponse Problem
 
 type NotFoundProblemApplicationProblemPlusJSONResponse Problem
+
+type OrderPageJSONResponse OrderPage
 
 type SellListingPageJSONResponse SellListingPage
 
@@ -1146,6 +1625,76 @@ func (response Login500ApplicationProblemPlusJSONResponse) VisitLoginResponse(w 
 	return err
 }
 
+type ListOrdersRequestObject struct {
+	Params ListOrdersParams
+}
+
+type ListOrdersResponseObject interface {
+	VisitListOrdersResponse(w http.ResponseWriter) error
+}
+
+type ListOrders200JSONResponse struct{ OrderPageJSONResponse }
+
+func (response ListOrders200JSONResponse) VisitListOrdersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListOrders400ApplicationProblemPlusJSONResponse struct {
+	ValidationProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListOrders400ApplicationProblemPlusJSONResponse) VisitListOrdersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListOrders401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListOrders401ApplicationProblemPlusJSONResponse) VisitListOrdersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListOrders500ApplicationProblemPlusJSONResponse struct {
+	InternalProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListOrders500ApplicationProblemPlusJSONResponse) VisitListOrdersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListSellListingsRequestObject struct {
 	Params ListSellListingsParams
 }
@@ -1436,6 +1985,108 @@ func (response GetSellListing500ApplicationProblemPlusJSONResponse) VisitGetSell
 	return err
 }
 
+type PurchaseSellListingRequestObject struct {
+	SellListingId SellListingId `json:"sellListingId"`
+}
+
+type PurchaseSellListingResponseObject interface {
+	VisitPurchaseSellListingResponse(w http.ResponseWriter) error
+}
+
+type PurchaseSellListing201JSONResponse DirectTradeResult
+
+func (response PurchaseSellListing201JSONResponse) VisitPurchaseSellListingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PurchaseSellListing401ApplicationProblemPlusJSONResponse struct {
+	UnauthenticatedProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PurchaseSellListing401ApplicationProblemPlusJSONResponse) VisitPurchaseSellListingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PurchaseSellListing403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PurchaseSellListing403ApplicationProblemPlusJSONResponse) VisitPurchaseSellListingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PurchaseSellListing404ApplicationProblemPlusJSONResponse struct {
+	NotFoundProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PurchaseSellListing404ApplicationProblemPlusJSONResponse) VisitPurchaseSellListingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PurchaseSellListing409ApplicationProblemPlusJSONResponse struct {
+	ConflictProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PurchaseSellListing409ApplicationProblemPlusJSONResponse) VisitPurchaseSellListingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PurchaseSellListing500ApplicationProblemPlusJSONResponse struct {
+	InternalProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PurchaseSellListing500ApplicationProblemPlusJSONResponse) VisitPurchaseSellListingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type LogoutRequestObject struct {
 }
 
@@ -1641,6 +2292,9 @@ type StrictServerInterface interface {
 	// Login Create a session
 	// (POST /login)
 	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
+	// ListOrders List the current user's orders
+	// (GET /orders)
+	ListOrders(ctx context.Context, request ListOrdersRequestObject) (ListOrdersResponseObject, error)
 	// ListSellListings Browse sale listings
 	// (GET /sell-listings)
 	ListSellListings(ctx context.Context, request ListSellListingsRequestObject) (ListSellListingsResponseObject, error)
@@ -1653,6 +2307,9 @@ type StrictServerInterface interface {
 	// GetSellListing Get a sale listing
 	// (GET /sell-listings/{sellListingId})
 	GetSellListing(ctx context.Context, request GetSellListingRequestObject) (GetSellListingResponseObject, error)
+	// PurchaseSellListing Buy a sale listing at its listed price
+	// (POST /sell-listings/{sellListingId}/purchase)
+	PurchaseSellListing(ctx context.Context, request PurchaseSellListingRequestObject) (PurchaseSellListingResponseObject, error)
 	// Logout Delete the current session
 	// (DELETE /sessions/current)
 	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
@@ -1861,6 +2518,32 @@ func (sh *strictHandler) Login(ctx *gin.Context) {
 	}
 }
 
+// ListOrders operation middleware
+func (sh *strictHandler) ListOrders(ctx *gin.Context, params ListOrdersParams) {
+	var request ListOrdersRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListOrders(ctx, request.(ListOrdersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListOrders")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ListOrdersResponseObject); ok {
+		if err := validResponse.VisitListOrdersResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListSellListings operation middleware
 func (sh *strictHandler) ListSellListings(ctx *gin.Context, params ListSellListingsParams) {
 	var request ListSellListingsRequestObject
@@ -1963,6 +2646,32 @@ func (sh *strictHandler) GetSellListing(ctx *gin.Context, sellListingId SellList
 		sh.options.HandlerErrorFunc(ctx, err)
 	} else if validResponse, ok := response.(GetSellListingResponseObject); ok {
 		if err := validResponse.VisitGetSellListingResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PurchaseSellListing operation middleware
+func (sh *strictHandler) PurchaseSellListing(ctx *gin.Context, sellListingId SellListingId) {
+	var request PurchaseSellListingRequestObject
+
+	request.SellListingId = sellListingId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.PurchaseSellListing(ctx, request.(PurchaseSellListingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PurchaseSellListing")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(PurchaseSellListingResponseObject); ok {
+		if err := validResponse.VisitPurchaseSellListingResponse(ctx.Writer); err != nil {
 			sh.options.ResponseErrorHandlerFunc(ctx, err)
 		}
 	} else if response != nil {

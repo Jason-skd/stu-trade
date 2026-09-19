@@ -40,26 +40,24 @@ func (q *Queries) CreateBookListingDetail(ctx context.Context, arg CreateBookLis
 }
 
 const createListing = `-- name: CreateListing :exec
-INSERT INTO listings (id, owner_id, resource_ref, side, price_cents, status, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO listings (id, owner_id, side, price_cents, status, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 `
 
 type CreateListingParams struct {
-	ID          pgtype.UUID
-	OwnerID     pgtype.UUID
-	ResourceRef pgtype.UUID
-	Side        string
-	PriceCents  int64
-	Status      string
-	CreatedAt   pgtype.Timestamptz
-	UpdatedAt   pgtype.Timestamptz
+	ID         pgtype.UUID
+	OwnerID    pgtype.UUID
+	Side       string
+	PriceCents int64
+	Status     string
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
 }
 
 func (q *Queries) CreateListing(ctx context.Context, arg CreateListingParams) error {
 	_, err := q.db.Exec(ctx, createListing,
 		arg.ID,
 		arg.OwnerID,
-		arg.ResourceRef,
 		arg.Side,
 		arg.PriceCents,
 		arg.Status,
@@ -164,7 +162,7 @@ func (q *Queries) ReadBookListingDetails(ctx context.Context, dollar_1 []pgtype.
 }
 
 const readListingForUpdate = `-- name: ReadListingForUpdate :one
-SELECT id, owner_id, resource_ref, side, price_cents, status, created_at, updated_at
+SELECT id, owner_id, side, price_cents, status, created_at, updated_at
 FROM listings
 WHERE id = $1
 FOR UPDATE
@@ -176,7 +174,6 @@ func (q *Queries) ReadListingForUpdate(ctx context.Context, id pgtype.UUID) (Lis
 	err := row.Scan(
 		&i.ID,
 		&i.OwnerID,
-		&i.ResourceRef,
 		&i.Side,
 		&i.PriceCents,
 		&i.Status,
@@ -218,7 +215,7 @@ func (q *Queries) ReadListingOwners(ctx context.Context, dollar_1 []pgtype.UUID)
 }
 
 const readListings = `-- name: ReadListings :many
-SELECT id, owner_id, resource_ref, side, price_cents, status, created_at, updated_at
+SELECT id, owner_id, side, price_cents, status, created_at, updated_at
 FROM listings
 WHERE id = ANY($1::uuid[])
 `
@@ -235,7 +232,6 @@ func (q *Queries) ReadListings(ctx context.Context, dollar_1 []pgtype.UUID) ([]L
 		if err := rows.Scan(
 			&i.ID,
 			&i.OwnerID,
-			&i.ResourceRef,
 			&i.Side,
 			&i.PriceCents,
 			&i.Status,
@@ -255,31 +251,28 @@ func (q *Queries) ReadListings(ctx context.Context, dollar_1 []pgtype.UUID) ([]L
 const updateListing = `-- name: UpdateListing :execrows
 UPDATE listings
 SET owner_id = $2,
-    resource_ref = $3,
-    side = $4,
-    price_cents = $5,
-    status = $6,
-    created_at = $7,
-    updated_at = $8
+    side = $3,
+    price_cents = $4,
+    status = $5,
+    created_at = $6,
+    updated_at = $7
 WHERE id = $1
 `
 
 type UpdateListingParams struct {
-	ID          pgtype.UUID
-	OwnerID     pgtype.UUID
-	ResourceRef pgtype.UUID
-	Side        string
-	PriceCents  int64
-	Status      string
-	CreatedAt   pgtype.Timestamptz
-	UpdatedAt   pgtype.Timestamptz
+	ID         pgtype.UUID
+	OwnerID    pgtype.UUID
+	Side       string
+	PriceCents int64
+	Status     string
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
 }
 
 func (q *Queries) UpdateListing(ctx context.Context, arg UpdateListingParams) (int64, error) {
 	result, err := q.db.Exec(ctx, updateListing,
 		arg.ID,
 		arg.OwnerID,
-		arg.ResourceRef,
 		arg.Side,
 		arg.PriceCents,
 		arg.Status,

@@ -19,14 +19,40 @@ type BookListingDetail struct {
 }
 
 type Listing struct {
-	ID          pgtype.UUID
-	OwnerID     pgtype.UUID
-	ResourceRef pgtype.UUID
-	Side        string
-	PriceCents  int64
-	Status      string
-	CreatedAt   pgtype.Timestamptz
-	UpdatedAt   pgtype.Timestamptz
+	ID         pgtype.UUID
+	OwnerID    pgtype.UUID
+	Side       string
+	PriceCents int64
+	Status     string
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
+}
+
+type MatchRequest struct {
+	ID                pgtype.UUID
+	BuyerID           pgtype.UUID
+	SellerID          pgtype.UUID
+	ResourceRef       pgtype.UUID
+	BuyListingID      pgtype.UUID
+	SellListingID     pgtype.UUID
+	TradePriceCents   int64
+	Source            string
+	BuyerConfirmedAt  pgtype.Timestamptz
+	SellerConfirmedAt pgtype.Timestamptz
+	Status            string
+	OrderRef          pgtype.UUID
+	CreatedAt         pgtype.Timestamptz
+	UpdatedAt         pgtype.Timestamptz
+}
+
+type Order struct {
+	ID                          pgtype.UUID
+	MatchRequestID              pgtype.UUID
+	Status                      string
+	SellerConfirmedCompletionAt pgtype.Timestamptz
+	BuyerConfirmedCompletionAt  pgtype.Timestamptz
+	CreatedAt                   pgtype.Timestamptz
+	UpdatedAt                   pgtype.Timestamptz
 }
 
 type User struct {

@@ -1,16 +1,14 @@
 package listing
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"errors"
-	"io"
 	"net/url"
 	"strings"
 	"time"
 	"unicode"
 
 	engine "github.com/Jason-skd/stu-trade-engine"
+	"github.com/Jason-skd/stu-trade/internal/pagecursor"
 	"github.com/google/uuid"
 )
 
@@ -179,7 +177,7 @@ func validateList(input ListInput) (CandidateFilter, int, error) {
 	}
 	filter.PageSize = limit + 1
 	if input.Cursor != nil {
-		createdAt, id, err := decodeCursor(*input.Cursor)
+		createdAt, id, err := pagecursor.Decode(*input.Cursor)
 		if err != nil {
 			fields = append(fields, FieldError{"cursor", "invalid", "must be a continuation cursor returned by this API"})
 		} else {
@@ -214,42 +212,8 @@ func looksLikeISBN(value string) bool {
 	return true
 }
 
-// === 编解码分页游标 ===
-
-type cursorValue struct {
-	// === runtime 字段 ===
-	CreatedAt string `json:"createdAt"`
-	ID        string `json:"id"`
-}
-
 func encodeCursor(createdAt time.Time, id uuid.UUID) string {
-	value, _ := json.Marshal(cursorValue{CreatedAt: createdAt.UTC().Format(time.RFC3339Nano), ID: id.String()})
-	return base64.RawURLEncoding.EncodeToString(value)
-}
-
-func decodeCursor(value string) (time.Time, uuid.UUID, error) {
-	raw, err := base64.RawURLEncoding.DecodeString(value)
-	if err != nil {
-		return time.Time{}, uuid.Nil, err
-	}
-	var cursor cursorValue
-	decoder := json.NewDecoder(strings.NewReader(string(raw)))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&cursor); err != nil {
-		return time.Time{}, uuid.Nil, err
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return time.Time{}, uuid.Nil, errors.New("cursor must contain one value")
-	}
-	createdAt, err := time.Parse(time.RFC3339Nano, cursor.CreatedAt)
-	if err != nil {
-		return time.Time{}, uuid.Nil, err
-	}
-	id, err := uuid.Parse(cursor.ID)
-	if err != nil || id == uuid.Nil {
-		return time.Time{}, uuid.Nil, errors.New("invalid cursor id")
-	}
-	return createdAt.UTC(), id, nil
+	return pagecursor.Encode(createdAt, id)
 }
 
 // === 转义标题查询 ===

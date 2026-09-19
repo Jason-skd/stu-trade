@@ -287,8 +287,14 @@ func transportMoney(view listingdomain.View) Money {
 	return Money{Amount: int(view.Listing.Price().Cents()), Currency: CNY}
 }
 func availableActions(view listingdomain.View, current *auth.User) []ListingAction {
-	if current != nil && view.Listing.OwnerID() == current.ID.String() && view.Listing.Status() == engine.ListingStatusOpen {
+	if current == nil || view.Listing.Status() != engine.ListingStatusOpen {
+		return []ListingAction{}
+	}
+	if view.Listing.OwnerID() == current.ID.String() {
 		return []ListingAction{Withdraw}
+	}
+	if view.Listing.Side() == engine.SideSell {
+		return []ListingAction{Purchase}
 	}
 	return []ListingAction{}
 }

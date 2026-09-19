@@ -3,8 +3,8 @@ INSERT INTO book_listing_details (id, isbn_13, title, author, cover_image_url, c
 VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: CreateListing :exec
-INSERT INTO listings (id, owner_id, resource_ref, side, price_cents, status, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+INSERT INTO listings (id, owner_id, side, price_cents, status, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: ReadBookListingDetails :many
 SELECT id, isbn_13, title, author, cover_image_url, condition, note
@@ -12,12 +12,12 @@ FROM book_listing_details
 WHERE id = ANY($1::uuid[]);
 
 -- name: ReadListings :many
-SELECT id, owner_id, resource_ref, side, price_cents, status, created_at, updated_at
+SELECT id, owner_id, side, price_cents, status, created_at, updated_at
 FROM listings
 WHERE id = ANY($1::uuid[]);
 
 -- name: ReadListingForUpdate :one
-SELECT id, owner_id, resource_ref, side, price_cents, status, created_at, updated_at
+SELECT id, owner_id, side, price_cents, status, created_at, updated_at
 FROM listings
 WHERE id = $1
 FOR UPDATE;
@@ -25,12 +25,11 @@ FOR UPDATE;
 -- name: UpdateListing :execrows
 UPDATE listings
 SET owner_id = $2,
-    resource_ref = $3,
-    side = $4,
-    price_cents = $5,
-    status = $6,
-    created_at = $7,
-    updated_at = $8
+    side = $3,
+    price_cents = $4,
+    status = $5,
+    created_at = $6,
+    updated_at = $7
 WHERE id = $1;
 
 -- name: FindListingIDs :many

@@ -279,12 +279,16 @@ func (s *fakeStore) ReadListings(_ context.Context, ids []string) ([]engine.List
 	}
 	return result, nil
 }
-func (s *fakeStore) ReadListingForUpdate(_ context.Context, id string) (engine.ListingRecord, error) {
-	record, ok := s.records[id]
-	if !ok {
-		return engine.ListingRecord{}, engine.ErrListingNotFound
+func (s *fakeStore) ReadListingsForUpdate(_ context.Context, ids []string) ([]engine.ListingRecord, error) {
+	result := make([]engine.ListingRecord, 0, len(ids))
+	for _, id := range ids {
+		record, ok := s.records[id]
+		if !ok {
+			return nil, engine.ErrListingNotFound
+		}
+		result = append(result, record)
 	}
-	return record, nil
+	return result, nil
 }
 func (s *fakeStore) UpdateListing(_ context.Context, record engine.ListingRecord) error {
 	s.records[record.ID] = record

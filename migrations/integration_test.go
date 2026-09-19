@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -76,6 +77,71 @@ func TestUpAppliesEmbeddedMigrations(t *testing.T) {
 	}
 	if err := Up(ctx, testURL, logger); err != nil {
 		t.Fatalf("second Up() error = %v", err)
+	}
+
+	// === 验证直接成交物理约束 ===
+	var redundantColumnExists bool
+	if err := pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = current_schema() AND table_name = 'listings' AND column_name = 'resource_ref'
+		)
+	`).Scan(&redundantColumnExists); err != nil {
+		t.Fatalf("inspect listings.resource_ref: %v", err)
+	}
+	if redundantColumnExists {
+		t.Fatal("listings.resource_ref still exists")
+	}
+	wantConstraints := []string{
+		"match_requests_completion_check",
+		"match_requests_order_pair_fkey",
+		"match_requests_source_listings_check",
+		"match_requests_status_check",
+		"orders_match_request_id_key",
+		"orders_status_check",
+	}
+	rows, err := pool.Query(ctx, `
+		SELECT conname
+		FROM pg_constraint
+		WHERE connamespace = current_schema()::regnamespace
+		  AND conname = ANY($1::text[])
+		ORDER BY conname
+	`, wantConstraints)
+	if err != nil {
+		t.Fatalf("inspect direct purchase constraints: %v", err)
+	}
+	defer rows.Close()
+	var gotConstraints []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatalf("scan direct purchase constraint: %v", err)
+		}
+		gotConstraints = append(gotConstraints, name)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate direct purchase constraints: %v", err)
+	}
+	if !slices.Equal(gotConstraints, wantConstraints) {
+		t.Fatalf("direct purchase constraints = %v, want %v", gotConstraints, wantConstraints)
+	}
+	var orderDeleteAction, requestDeleteAction string
+	if err := pool.QueryRow(ctx, `
+		SELECT confdeltype::text
+		FROM pg_constraint
+		WHERE connamespace = current_schema()::regnamespace AND conname = 'orders_match_request_id_fkey'
+	`).Scan(&orderDeleteAction); err != nil {
+		t.Fatalf("inspect order match request foreign key: %v", err)
+	}
+	if err := pool.QueryRow(ctx, `
+		SELECT confdeltype::text
+		FROM pg_constraint
+		WHERE connamespace = current_schema()::regnamespace AND conname = 'match_requests_order_pair_fkey'
+	`).Scan(&requestDeleteAction); err != nil {
+		t.Fatalf("inspect match request order foreign key: %v", err)
+	}
+	if orderDeleteAction != "r" || requestDeleteAction != "r" {
+		t.Fatalf("direct purchase delete actions = order:%q request:%q, want restrict", orderDeleteAction, requestDeleteAction)
 	}
 }
 

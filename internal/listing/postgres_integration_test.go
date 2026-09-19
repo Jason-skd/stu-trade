@@ -166,15 +166,8 @@ func TestPostgresListingLifecyclePaginationAndConstraints(t *testing.T) {
 	if _, err := pool.Exec(ctx, `INSERT INTO book_listing_details (id, isbn_13, title, author, condition) VALUES ($1, '9780306406157', 'Invalid', 'Author', 'good')`, invalidID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO listings (id, owner_id, resource_ref, side, price_cents, status, created_at, updated_at) VALUES ($1, $2, $1, 'sell', 0, 'open', $3, $3)`, invalidID, other.ID, base); err == nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO listings (id, owner_id, side, price_cents, status, created_at, updated_at) VALUES ($1, $2, 'sell', 0, 'open', $3, $3)`, invalidID, other.ID, base); err == nil {
 		t.Fatal("non-positive price constraint accepted invalid listing")
-	}
-	mismatchID := uuid.MustParse("99999999-9999-4999-8999-999999999999")
-	if _, err := pool.Exec(ctx, `INSERT INTO book_listing_details (id, isbn_13, title, author, condition) VALUES ($1, '9780306406157', 'Mismatch', 'Author', 'good')`, mismatchID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := pool.Exec(ctx, `INSERT INTO listings (id, owner_id, resource_ref, side, price_cents, status, created_at, updated_at) VALUES ($1, $2, $3, 'sell', 100, 'open', $4, $4)`, mismatchID, other.ID, third.Detail.ID, base); err == nil {
-		t.Fatal("resource reference equality constraint accepted mismatched listing")
 	}
 	if _, err := pool.Exec(ctx, `INSERT INTO book_listing_details (id, isbn_13, title, author, condition) VALUES ($1, '978030640615X', 'Bad ISBN', 'Author', 'good')`, uuid.New()); err == nil {
 		t.Fatal("ISBN storage constraint accepted invalid characters")

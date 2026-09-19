@@ -34,7 +34,7 @@ func (s *PostgresStore) Transact(ctx context.Context, operation func(Transaction
 		return fmt.Errorf("begin listing transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	adapter := &postgresAdapter{queries: s.queries.WithTx(tx)}
+	adapter := NewPostgresAdapter(s.queries.WithTx(tx))
 	if err := operation(adapter); err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func (s *PostgresStore) Transact(ctx context.Context, operation func(Transaction
 
 // ReadListings 读取 engine Listing 物理记录；合法性由 engine 恢复入口校验。
 func (s *PostgresStore) ReadListings(ctx context.Context, ids []string) ([]engine.ListingRecord, error) {
-	return (&postgresAdapter{queries: s.queries}).ReadListings(ctx, ids)
+	return NewPostgresAdapter(s.queries).ReadListings(ctx, ids)
 }
 
 // FindListingIDs 仅返回符合宿主筛选条件的稳定排序候选标识。
@@ -105,11 +105,17 @@ func (s *PostgresStore) ReadUsers(ctx context.Context, ids []uuid.UUID) ([]Publi
 	return result, nil
 }
 
-type postgresAdapter struct{ queries *db.Queries }
+// PostgresAdapter 将事务绑定的 sqlc 查询适配为 engine Listing 协议。
+type PostgresAdapter struct{ queries *db.Queries }
+
+// NewPostgresAdapter 创建绑定指定查询执行器的 engine Listing 适配器。
+func NewPostgresAdapter(queries *db.Queries) *PostgresAdapter {
+	return &PostgresAdapter{queries: queries}
+}
 
 // === 适配引擎协议 ===
 
-func (a *postgresAdapter) CreateDetail(ctx context.Context, detail Detail) error {
+func (a *PostgresAdapter) CreateDetail(ctx context.Context, detail Detail) error {
 	return a.queries.CreateBookListingDetail(ctx, db.CreateBookListingDetailParams{
 		ID: pgUUID(detail.ID), Isbn13: detail.Book.ISBN13, Title: detail.Book.Title,
 		Author: detail.Book.Author, CoverImageUrl: optionalText(detail.Book.CoverImageURL),
@@ -117,7 +123,7 @@ func (a *postgresAdapter) CreateDetail(ctx context.Context, detail Detail) error
 	})
 }
 
-func (a *postgresAdapter) CreateListing(ctx context.Context, entity *engine.Listing) error {
+func (a *PostgresAdapter) CreateListing(ctx context.Context, entity *engine.Listing) error {
 	params, err := createListingParams(entity.Record())
 	if err != nil {
 		return err
@@ -125,7 +131,7 @@ func (a *postgresAdapter) CreateListing(ctx context.Context, entity *engine.List
 	return a.queries.CreateListing(ctx, params)
 }
 
-func (a *postgresAdapter) ReadListings(ctx context.Context, ids []string) ([]engine.ListingRecord, error) {
+func (a *PostgresAdapter) ReadListings(ctx context.Context, ids []string) ([]engine.ListingRecord, error) {
 	parsed, err := parseUUIDStrings(ids)
 	if err != nil {
 		return nil, err
@@ -141,22 +147,26 @@ func (a *postgresAdapter) ReadListings(ctx context.Context, ids []string) ([]eng
 	return result, nil
 }
 
-func (a *postgresAdapter) ReadListingForUpdate(ctx context.Context, id string) (engine.ListingRecord, error) {
-	parsed, err := uuid.Parse(id)
-	if err != nil {
-		return engine.ListingRecord{}, engine.ErrListingNotFound
+func (a *PostgresAdapter) ReadListingsForUpdate(ctx context.Context, ids []string) ([]engine.ListingRecord, error) {
+	records := make([]engine.ListingRecord, 0, len(ids))
+	for _, id := range ids {
+		parsed, err := uuid.Parse(id)
+		if err != nil {
+			return nil, engine.ErrListingNotFound
+		}
+		row, err := a.queries.ReadListingForUpdate(ctx, pgUUID(parsed))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, engine.ErrListingNotFound
+		}
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, listingRecord(row))
 	}
-	row, err := a.queries.ReadListingForUpdate(ctx, pgUUID(parsed))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return engine.ListingRecord{}, engine.ErrListingNotFound
-	}
-	if err != nil {
-		return engine.ListingRecord{}, err
-	}
-	return listingRecord(row), nil
+	return records, nil
 }
 
-func (a *postgresAdapter) UpdateListing(ctx context.Context, record engine.ListingRecord) error {
+func (a *PostgresAdapter) UpdateListing(ctx context.Context, record engine.ListingRecord) error {
 	params, err := updateListingParams(record)
 	if err != nil {
 		return err
@@ -174,49 +184,48 @@ func (a *postgresAdapter) UpdateListing(ctx context.Context, record engine.Listi
 // === 转换引擎记录 ===
 
 func createListingParams(record engine.ListingRecord) (db.CreateListingParams, error) {
-	id, ownerID, resourceRef, err := recordUUIDs(record)
+	id, ownerID, err := recordUUIDs(record)
 	if err != nil {
 		return db.CreateListingParams{}, err
 	}
 	return db.CreateListingParams{
-		ID: pgUUID(id), OwnerID: pgUUID(ownerID), ResourceRef: pgUUID(resourceRef),
+		ID: pgUUID(id), OwnerID: pgUUID(ownerID),
 		Side: record.Side.String(), PriceCents: record.PriceCents, Status: record.Status.String(),
 		CreatedAt: pgTime(record.CreatedAt), UpdatedAt: pgTime(record.UpdatedAt),
 	}, nil
 }
 
 func updateListingParams(record engine.ListingRecord) (db.UpdateListingParams, error) {
-	id, ownerID, resourceRef, err := recordUUIDs(record)
+	id, ownerID, err := recordUUIDs(record)
 	if err != nil {
 		return db.UpdateListingParams{}, err
 	}
 	return db.UpdateListingParams{
-		ID: pgUUID(id), OwnerID: pgUUID(ownerID), ResourceRef: pgUUID(resourceRef),
+		ID: pgUUID(id), OwnerID: pgUUID(ownerID),
 		Side: record.Side.String(), PriceCents: record.PriceCents, Status: record.Status.String(),
 		CreatedAt: pgTime(record.CreatedAt), UpdatedAt: pgTime(record.UpdatedAt),
 	}, nil
 }
 
-func recordUUIDs(record engine.ListingRecord) (uuid.UUID, uuid.UUID, uuid.UUID, error) {
+func recordUUIDs(record engine.ListingRecord) (uuid.UUID, uuid.UUID, error) {
 	id, err := uuid.Parse(record.ID)
 	if err != nil {
-		return uuid.Nil, uuid.Nil, uuid.Nil, fmt.Errorf("parse listing id: %w", err)
+		return uuid.Nil, uuid.Nil, fmt.Errorf("parse listing id: %w", err)
 	}
 	ownerID, err := uuid.Parse(record.OwnerID)
 	if err != nil {
-		return uuid.Nil, uuid.Nil, uuid.Nil, fmt.Errorf("parse listing owner id: %w", err)
+		return uuid.Nil, uuid.Nil, fmt.Errorf("parse listing owner id: %w", err)
 	}
-	resourceRef, err := uuid.Parse(record.ResourceRef)
-	if err != nil {
-		return uuid.Nil, uuid.Nil, uuid.Nil, fmt.Errorf("parse listing resource ref: %w", err)
+	if record.ResourceRef != record.ID {
+		return uuid.Nil, uuid.Nil, fmt.Errorf("listing resource ref %q must equal id %q", record.ResourceRef, record.ID)
 	}
-	return id, ownerID, resourceRef, nil
+	return id, ownerID, nil
 }
 
 func listingRecord(row db.Listing) engine.ListingRecord {
 	return engine.ListingRecord{
 		ID: uuid.UUID(row.ID.Bytes).String(), OwnerID: uuid.UUID(row.OwnerID.Bytes).String(),
-		ResourceRef: uuid.UUID(row.ResourceRef.Bytes).String(), Side: parseSide(row.Side),
+		ResourceRef: uuid.UUID(row.ID.Bytes).String(), Side: parseSide(row.Side),
 		PriceCents: row.PriceCents, Status: parseStatus(row.Status),
 		CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,
 	}

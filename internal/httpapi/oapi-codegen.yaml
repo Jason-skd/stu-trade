@@ -15,7 +15,9 @@ output-options:
     - createSellListing
     - getSellListing
     - withdrawSellListing
+    - purchaseSellListing
     - listBuyRequests
     - createBuyRequest
     - getBuyRequest
     - withdrawBuyRequest
+    - listOrders

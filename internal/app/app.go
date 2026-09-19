@@ -12,6 +12,7 @@ import (
 	"github.com/Jason-skd/stu-trade/internal/db"
 	"github.com/Jason-skd/stu-trade/internal/httpapi"
 	"github.com/Jason-skd/stu-trade/internal/listing"
+	"github.com/Jason-skd/stu-trade/internal/order"
 	"github.com/Jason-skd/stu-trade/migrations"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -51,9 +52,10 @@ func Serve(ctx context.Context, cfg Config, logger *slog.Logger) error {
 	authService := auth.NewService(auth.NewPostgresStore(pool), time.Now, nil)
 	authServer := httpapi.NewAuthServer(authService, logger, cfg.Profile == ProfileProduction)
 	listingServer := httpapi.NewListingServer(listing.NewService(listing.NewPostgresStore(pool), time.Now, nil), authService, logger)
+	orderServer := httpapi.NewOrderServer(order.NewService(order.NewPostgresStore(pool), time.Now, nil), authService, logger)
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           httpapi.NewRouter(readiness, authServer, listingServer),
+		Handler:           httpapi.NewRouter(readiness, authServer, listingServer, orderServer),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
